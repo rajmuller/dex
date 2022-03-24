@@ -460,7 +460,7 @@ describe("Dex", async function () {
     );
   });
 
-  it.only("should set limit orders' filled property correctly after a trade", async () => {
+  it("should set limit orders' filled property correctly after a trade", async () => {
     const [, address1, address2, address3] = await ethers.getSigners();
     const Dex = await ethers.getContractFactory("Dex");
     const Link = await ethers.getContractFactory("Link");
