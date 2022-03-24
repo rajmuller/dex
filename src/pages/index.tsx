@@ -1,40 +1,33 @@
-import {
-  Link as ChakraLink,
-  Text,
-  Code,
-  List,
-  ListIcon,
-  ListItem,
-  Flex,
-} from "@chakra-ui/react";
-import { CheckCircleIcon, LinkIcon } from "@chakra-ui/icons";
+import { Link as ChakraLink, Flex, Text, Select } from "@chakra-ui/react";
+import Head from "next/head";
+import Web3Modal from "web3modal";
+import { ethers } from "ethers";
 
-import { DarkModeSwitch } from "../components/DarkModeSwitch";
+const Home = () => {
+  return (
+    <>
+      <Head>
+        <title>Swap | Carrot</title>
+        <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+        <meta name="description" content="Dex Project" />
+        <meta name="keywords" content="Swap, Dex, Rein, Carrot" />
+        <meta name="author" content="Rein"></meta>
+      </Head>
 
-const Index = () => (
-  <Flex h="100vh">
-    <Text>
-      Example repository of <Code>Next.js</Code> + <Code>chakra-ui</Code> +{" "}
-      <Code>TypeScript</Code>.
-    </Text>
+      <Flex h="100vh" justify="center" align="center">
+        <Flex borderRadius="lg" bg="gray.800" direction="column" p={4}>
+          <Text>Swap</Text>
+          <Flex direction="column">
+            <Select defaultValue="ETH" size="lg">
+              <option value="ETH">ETH</option>
+              <option value="option2">Option 2</option>
+              <option value="option3">Option 3</option>
+            </Select>
+          </Flex>
+        </Flex>
+      </Flex>
+    </>
+  );
+};
 
-    <List spacing={3} my={0}>
-      <ListItem>
-        <ListIcon as={CheckCircleIcon} color="green.500" />
-        <ChakraLink isExternal href="https://chakra-ui.com" flexGrow={1} mr={2}>
-          Chakra UI <LinkIcon />
-        </ChakraLink>
-      </ListItem>
-      <ListItem>
-        <ListIcon as={CheckCircleIcon} color="green.500" />
-        <ChakraLink isExternal href="https://nextjs.org" flexGrow={1} mr={2}>
-          Next.js <LinkIcon />
-        </ChakraLink>
-      </ListItem>
-    </List>
-
-    <DarkModeSwitch />
-  </Flex>
-);
-
-export default Index;
+export default Home;

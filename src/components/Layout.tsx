@@ -1,4 +1,4 @@
-import { Flex, useColorMode } from "@chakra-ui/react";
+import { Flex } from "@chakra-ui/react";
 import { ReactNode } from "react";
 
 import Header from "./Header";
@@ -8,26 +8,24 @@ type LayoutProps = {
 };
 
 const Layout = ({ children }: LayoutProps) => {
-  const { colorMode } = useColorMode();
-
-  const bgColor = {
-    light: "gray.50",
-    dark: "radial-gradient(circle, rgba(96,58,8,1) 0%, rgba(27,16,1,1) 100%)",
-  };
-
-  const color = { light: "black", dark: "white" };
   return (
     <Flex
-      direction="column"
       alignItems="center"
-      maxW="1280px"
       mx="auto"
       justifyContent="flex-start"
-      bg={bgColor[colorMode]}
-      color={color[colorMode]}
+      bg="linear-gradient(155deg, rgba(22,1,28,1) 0%, rgba(15,3,19,1) 100%)"
+      color="white"
     >
-      <Header />
-      {children}
+      <Flex
+        direction="column"
+        alignItems="center"
+        w="100%"
+        mx="auto"
+        justifyContent="flex-start"
+      >
+        <Header />
+        {children}
+      </Flex>
     </Flex>
   );
 };
