@@ -72,21 +72,6 @@ const Header = () => {
     web3Modal?.clearCachedProvider();
   }, [web3Modal]);
 
-  // const getAccountAssets = async () => {
-  //   setFetching(true);
-
-  //   try {
-  //     // get account balances
-  //     const _assets = await apiGetAccountAssets(address, chainId);
-
-  //     setFetching(false);
-  //     setAssets(_assets);
-  //   } catch (error) {
-  //     console.error(error); // tslint:disable-line
-  //     setFetching(false);
-  //   }
-  // };
-
   const subscribeProvider = useCallback(
     async (provider: any) => {
       if (!provider.on) {
@@ -106,7 +91,10 @@ const Header = () => {
       });
 
       provider.on("chainChanged", (chainId: string) => {
-        const isMumbai = chainId === "0x13881";
+        console.log({ chainId });
+
+        // const isMumbai = chainId === "0x13881"; // real mumbai
+        const isMumbai = chainId === "0x539"; // localhost
         setIsMumbai(isMumbai);
       });
 
@@ -137,7 +125,11 @@ const Header = () => {
 
       const network = await provider.getNetwork();
 
-      const isMumbai = network.chainId === 80001;
+      console.log("nchain: ", network.chainId);
+      console.log("name: ", network.name);
+
+      // const isMumbai = network.chainId === 80001; // real mumbai
+      const isMumbai = network.chainId === 1337; // localhost
 
       setIsMumbai(isMumbai);
 
@@ -164,8 +156,6 @@ const Header = () => {
       onConnect();
     }
   }, [onConnect, web3Modal]);
-
-  console.log({ isMumbai });
 
   return (
     <>

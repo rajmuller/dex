@@ -14,8 +14,8 @@ async function main() {
   console.log("Dex deployed to:", dex.address);
   console.log("Link deployed to:", link.address);
 
-  const linkTicker = utils.formatBytes32String(await link.symbol());
-  await dex.addToken(linkTicker, link.address);
+  // const linkTicker = utils.formatBytes32String(await link.symbol());
+  // await dex.addToken(linkTicker, link.address);
 }
 
 main().catch((error) => {

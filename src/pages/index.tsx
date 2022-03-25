@@ -1,24 +1,41 @@
-import { useCallback, useState } from "react";
+import { useEffect, useState } from "react";
 import { Flex, Text, Select, Button } from "@chakra-ui/react";
 import Head from "next/head";
 import { ethers } from "ethers";
+import Web3Modal from "web3modal";
 
-import Dex from "../../contract/artifacts/contracts/Dex.sol/Dex.json";
-// import Market from "../artifacts/contracts/Market.sol/Market.json";
+import { Dex__factory } from "../../contract/typechain/factories/Dex__factory";
 
 import { dexAddress } from "../config";
 
 const Home = () => {
   const [tokens, setTokens] = useState([]);
   const [fetchingTokens, setFetchingTokens] = useState(false);
+  const [web3Modal, setWeb3Modal] = useState<Web3Modal>();
+
+  useEffect(() => {
+    const web3Modal = new Web3Modal({
+      cacheProvider: true, // optional
+      theme: "dark",
+    });
+
+    setWeb3Modal(web3Modal);
+  }, []);
 
   const loadTokens = async () => {
-    const provider = new ethers.providers.JsonRpcProvider(
-      "https://matic-mumbai.chainstacklabs.com"
+    if (!web3Modal) {
+      return;
+    }
+    const instance = await web3Modal.connect();
+    const provider = new ethers.providers.Web3Provider(instance);
+    const dex = Dex__factory.connect(dexAddress, provider);
+    const data = await dex.getTokenList();
+    const tickers = data.map((ticker) =>
+      ethers.utils.parseBytes32String(ticker)
     );
-    const dex = new ethers.Contract(dexAddress, Dex.abi, provider);
-    const data = await dex.tokenList(5);
-    console.log({ data });
+
+    // const linkTicker = ethers.utils.formatBytes32String("LINKK");
+    console.log({ tickers });
 
     /*
      *  map over items returned from smart contract and format

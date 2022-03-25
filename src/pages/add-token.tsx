@@ -30,19 +30,20 @@ const AddToken = () => {
     checkEligibility();
   }, []);
 
-  const onSubmit = async () => {
+  const onSubmit = async (e: any) => {
+    e.preventDefault();
     const web3Modal = new Web3Modal();
     const connection = await web3Modal.connect();
     const provider = new ethers.providers.Web3Provider(connection);
     const signer = provider.getSigner();
     const dex = new ethers.Contract(dexAddress, Dex.abi, signer);
 
-    console.log(form);
-
     const ticker = ethers.utils.formatBytes32String(form.ticker);
     const address = ethers.utils.getAddress(form.address);
 
     await dex.addToken(ticker, address);
+
+    setForm({ ticker: "", address: "" });
   };
 
   if (!show) {
@@ -58,6 +59,7 @@ const AddToken = () => {
             <FormLabel htmlFor="ticker">Ticker</FormLabel>
             <Input
               onChange={(e) => setForm({ ...form, ticker: e.target.value })}
+              value={form.ticker}
               id="ticker"
               type="Ticker"
             />
@@ -66,6 +68,7 @@ const AddToken = () => {
             <FormLabel htmlFor="address">Address</FormLabel>
             <Input
               onChange={(e) => setForm({ ...form, address: e.target.value })}
+              value={form.address}
               id="address"
               type="Address"
             />

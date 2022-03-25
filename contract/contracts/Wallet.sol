@@ -14,13 +14,17 @@ contract Wallet is Ownable {
     }
 
     mapping(bytes32 => Token) public tokenMapping;
-    bytes32[] public tokenList;
+    bytes32[] tokenList;
 
     mapping(address => mapping(bytes32 => uint256)) public balances;
 
     modifier onlyExistingToken(bytes32 _ticker) {
         require(tokenMapping[_ticker].tokenAddress != address(0), "Token is not initialized");
         _;
+    }
+
+    function getTokenList() public view returns (bytes32[] memory) {
+        return tokenList;
     }
 
     function addToken(bytes32 _ticker, address _tokenAddress) external onlyOwner {
