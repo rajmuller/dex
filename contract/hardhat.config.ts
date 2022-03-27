@@ -32,12 +32,12 @@ const config: HardhatUserConfig = {
       url: "http://localhost:8545",
     },
     mumbai: {
-      url: process.env.MUMBAI_URL || "",
+      url: process.env.NEXT_PUBLIC_MUMBAI_ENDPOINT || "",
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     poly: {
-      url: process.env.POLY_URL || "",
+      url: process.env.NEXT_PUBLIC_POLY_ENDPOINT || "",
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },

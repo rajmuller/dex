@@ -56,6 +56,24 @@ describe("Dex", async function () {
     ).to.changeTokenBalance(link, dex, depositAmount);
   });
 
+  it("should give back token list and address list", async function () {
+    const Dex = await ethers.getContractFactory("Dex");
+    const Link = await ethers.getContractFactory("Link");
+    const dex = await Dex.deploy();
+    const link = await Link.deploy();
+    await dex.deployed();
+    await link.deployed();
+
+    const linkTicker = utils.formatBytes32String(await link.symbol());
+
+    await dex.addToken(linkTicker, link.address);
+    const tokenList = await dex.getTokenList();
+    const tokenAddresses = await dex.getAddressList();
+
+    expect(tokenList[0]).to.be.eq(linkTicker);
+    expect(tokenAddresses[0]).to.be.eq(link.address);
+  });
+
   it("should revert faulty withdrawals", async function () {
     const Dex = await ethers.getContractFactory("Dex");
     const Link = await ethers.getContractFactory("Link");

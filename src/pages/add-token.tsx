@@ -1,7 +1,6 @@
 import { Button, Flex, FormControl, FormLabel, Input } from "@chakra-ui/react";
 import { ethers } from "ethers";
 import { useEffect, useState } from "react";
-import Web3Modal from "web3modal";
 
 import Dex from "../../contract/artifacts/contracts/Dex.sol/Dex.json";
 
@@ -51,7 +50,7 @@ const AddToken = () => {
   }
 
   return (
-    <Flex h="100vh" justify="center" align="center">
+    <Flex justify="center" align="center">
       <Flex justify="center" align="center" direction="column">
         <form onSubmit={onSubmit}>
           Add Token
