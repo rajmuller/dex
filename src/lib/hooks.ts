@@ -1,16 +1,10 @@
-import {
-  ChainId,
-  useEthers,
-  useContractFunction,
-  useConfig,
-  useTokenBalance,
-} from "@usedapp/core";
+import { ChainId, useEthers, useConfig, ERC20Interface } from "@usedapp/core";
 import { utils, Contract, providers } from "ethers";
 import { useEffect, useMemo } from "react";
 import toast from "react-hot-toast";
-import { useQuery } from "react-query";
+import { useQueries, useQuery } from "react-query";
 
-import { Dex__factory, ERC20__factory } from "../../contract/typechain";
+import { Dex__factory, ERC20 } from "../../contract/typechain";
 import { Contracts } from "../config";
 
 export function useChainId() {
@@ -45,46 +39,33 @@ export const useAddedTokenAddressList = () => {
     "addedTokenAddresses",
     () => dex.getAddressList(),
     {
-      refetchInterval: 20 * 1000,
+      refetchInterval: 30 * 1000,
+      re
     }
   );
-  console.log("addressListData: ", data);
-
   return { data, status };
 };
 
-export const useTokenBalances = () => {
+export const useTokenBalance = (address: string) => {
   const { account } = useEthers();
   const { readOnlyUrls } = useConfig();
   const chainId = useChainId();
 
-  const { data } = useAddedTokenAddressList();
   const provider = new providers.JsonRpcProvider(readOnlyUrls![chainId]);
+  const erc20 = new Contract(
+    address,
+    ERC20Interface,
+    provider
+  ) as unknown as ERC20;
 
-  const erc20 = data?.length ? ERC20__factory.connect(data[0], provider) : null;
-
-  const { data: balance, status } = useQuery(
+  const { data, status } = useQuery(
     "tokenBalance",
-    () => erc20!.balanceOf(account!),
+    () => erc20.balanceOf(account!),
     {
-      enabled: data && erc20 !== null && !!account,
+      enabled: !!account,
+      refetchInterval: 30 * 1000,
     }
   );
-  console.log(balance?.toNumber());
 
-  // useEffect(() => {
-  //   console.log({ state });
-
-  //   switch (state.status) {
-  //     case "Exception":
-  //     case "Fail":
-  //       toast.error(`Transaction failed! ${state.errorMessage}`);
-  //       return;
-  //     case "Success":
-  //       toast.success("Successfully acquired token list!");
-  //       break;
-  //   }
-  // }, [state, state.errorMessage, state.status]);
-
-  return { balance };
+  return { data, status };
 };
