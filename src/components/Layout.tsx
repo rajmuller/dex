@@ -25,7 +25,7 @@ const Layout = ({ children }: LayoutProps) => {
         alignItems="center"
         w="100%"
         mx="auto"
-        justifyContent="center"
+        justifyContent="start"
       >
         {children}
         <ToastNotificatio />
