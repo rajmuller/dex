@@ -14,10 +14,9 @@ export const BASE_URL =
 export const UNKNOWN_ICON = BASE_URL + "unknown.png";
 
 const Logo = ({ ticker, width = 6, height = 6 }: LogoProps) => {
-  const src = `${BASE_URL}${ticker.toLowerCase()}.jpg`;
   const [fallback, setFallback] = useState("");
 
-  console.log({ src });
+  const src = `${BASE_URL}${ticker}.jpg`;
 
   return (
     <Flex
@@ -33,7 +32,7 @@ const Logo = ({ ticker, width = 6, height = 6 }: LogoProps) => {
         layout="fill"
         alt={`logo of ${ticker}`}
         objectFit="cover"
-        src={fallback || src}
+        src={fallback || src.toLowerCase()}
       />
     </Flex>
   );
