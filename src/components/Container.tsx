@@ -1,10 +1,9 @@
 import { Flex, FlexProps, Heading } from "@chakra-ui/react";
 import { ReactNode } from "react";
 
-type ContainerProps = {
+type ContainerProps = FlexProps & {
   heading: string;
   children?: ReactNode;
-  props?: FlexProps;
 };
 
 const Container = ({ heading, children, ...props }: ContainerProps) => {

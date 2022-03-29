@@ -2,11 +2,11 @@ import { Flex, Heading, Spinner } from "@chakra-ui/react";
 import { useEthers } from "@usedapp/core";
 
 import { Container, Token } from "../components";
-import { useAddedTokenTickerList } from "../lib/hooks";
+import { useTickerList } from "../lib/hooks";
 
 const Home = () => {
   const { account } = useEthers();
-  const { data, status } = useAddedTokenTickerList();
+  const { data, status } = useTickerList();
 
   if (status === "loading") {
     return (

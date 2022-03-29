@@ -1,12 +1,13 @@
 import { ChainId, useEthers, useConfig, ERC20Interface } from "@usedapp/core";
-import { utils, Contract, providers } from "ethers";
-import { useEffect, useMemo } from "react";
+import { utils, Contract, providers, BytesLike, BigNumber } from "ethers";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useQueries, useQuery } from "react-query";
 import axios from "axios";
 
 import { Dex__factory, ERC20 } from "../../contract/typechain";
 import { Contracts } from "../config";
+import { formatBytes32String } from "ethers/lib/utils";
 
 export function useChainId() {
   const { chainId } = useEthers();
@@ -34,7 +35,7 @@ const useDex = (args: { readOnly: boolean }) => {
   return Dex__factory.connect(Contracts[chainId].dex, provider);
 };
 
-export const useAddedTokenTickerList = () => {
+export const useTickerList = () => {
   const dex = useDex({ readOnly: true });
   const { data, status, error } = useQuery(
     "addedTokenTickers",
@@ -55,7 +56,7 @@ export const useAddedTokenTickerList = () => {
   return { data, status };
 };
 
-export const useAddedTokenAddressList = () => {
+export const useAddressList = () => {
   const dex = useDex({ readOnly: true });
   const { data, status } = useQuery(
     "addedTokenAddresses",
@@ -67,15 +68,11 @@ export const useAddedTokenAddressList = () => {
   return { data, status };
 };
 
-const getCoingeckoUrl = (tokenAddress: string) => {
-  return `https://api.coingecko.com/api/v3/simple/token_price/polygon-pos?contract_addresses=${tokenAddress}&vs_currencies=eth`;
-};
-
-export const useToken = (ticker: string) => {
+export const useToken = (ticker?: string) => {
   const dex = useDex({ readOnly: true });
   const { data, status, error } = useQuery(
     ["token", ticker],
-    () => dex.tokenMapping(ticker),
+    () => dex.tokenMapping(formatBytes32String(ticker!)),
     {
       refetchInterval: 30 * 1000,
       enabled: !!ticker,
@@ -93,47 +90,90 @@ export const useToken = (ticker: string) => {
   return { data, status };
 };
 
-export const useTokenPrice = (address: string | undefined, ticker: string) => {
-  const { data, status, error } = useQuery(
-    ["tokenPrice", address],
-    () => axios.get(getCoingeckoUrl(address!)),
-    {
-      refetchInterval: 30 * 1000,
-      enabled: !!address,
-    }
-  );
-
-  useEffect(() => {
-    switch (status) {
-      case "error":
-        toast.error(`Failed loading ${ticker} token price: ${error}`);
-        break;
-    }
-  }, [error, status, ticker]);
-
-  return { data, status };
+type BalanceProps = {
+  value: BigNumber;
+  decimals: number;
 };
 
-export const useTokenBalance = (address: string) => {
+export const useTokenBalance = (address?: string): BalanceProps => {
+  const [balance, setBalance] = useState<BalanceProps>({
+    value: BigNumber.from(0),
+    decimals: 18,
+  });
+
   const { account } = useEthers();
   const { readOnlyUrls } = useConfig();
   const chainId = useChainId();
 
   const provider = new providers.JsonRpcProvider(readOnlyUrls![chainId]);
-  const erc20 = new Contract(
-    address,
-    ERC20Interface,
-    provider
-  ) as unknown as ERC20;
 
-  const { data, status } = useQuery(
-    "addedTokenBalance",
-    () => erc20.balanceOf(account!),
+  const erc20 = address
+    ? (new Contract(address!, ERC20Interface, provider) as unknown as ERC20)
+    : null;
+
+  const decimalsQuery = useQuery(
+    ["decimals", address],
+    () =>
+      (
+        new Contract(address!, ERC20Interface, provider) as unknown as ERC20
+      ).decimals(),
     {
-      enabled: !!account,
+      enabled: !!account && !!erc20,
       refetchInterval: 30 * 1000,
     }
   );
 
-  return { data, status };
+  const balanceQuery = useQuery(
+    ["balance", address],
+    () =>
+      (
+        new Contract(address!, ERC20Interface, provider) as unknown as ERC20
+      ).balanceOf(account!),
+    {
+      enabled: !!account && !!erc20,
+      refetchInterval: 30 * 1000,
+    }
+  );
+
+  useEffect(() => {
+    if (
+      balanceQuery.status === "success" &&
+      decimalsQuery.status === "success"
+    ) {
+      setBalance({
+        value: balanceQuery.data,
+        decimals: decimalsQuery.data,
+      });
+    }
+  }, [
+    balanceQuery.data,
+    balanceQuery.status,
+    decimalsQuery.data,
+    decimalsQuery.status,
+    setBalance,
+  ]);
+
+  return balance;
+};
+
+enum Side {
+  BUY,
+  SELL,
+}
+
+export const useOrderbook = (ticker?: string) => {
+  const dex = useDex({ readOnly: true });
+
+  const buyOrders = useQuery(
+    ["orderbook", "buy"],
+    () => dex.getOrderBook(formatBytes32String(ticker!), Side.BUY),
+    { enabled: !!ticker }
+  );
+  const sellOrders = useQuery(
+    ["orderbook", "sell"],
+    () => dex.getOrderBook(formatBytes32String(ticker!), Side.SELL),
+    { enabled: !!ticker }
+  );
+
+  return { buyOrders, sellOrders };
 };

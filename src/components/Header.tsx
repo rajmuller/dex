@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
   chakra,
@@ -15,6 +15,7 @@ import {
 } from "@chakra-ui/react";
 import Image from "next/image";
 import { useEthers } from "@usedapp/core";
+import Link from "next/link";
 
 const Overlay = ({ show }: { show: boolean }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -79,7 +80,16 @@ const Header = () => {
         px={[4, 4, 12, 32]}
       >
         <Flex h="100%" w={[16, 24]} position="relative">
-          <Image layout="fill" alt="logo" objectFit="contain" src="/logo.png" />
+          <Link href="/">
+            <a>
+              <Image
+                layout="fill"
+                alt="logo"
+                objectFit="contain"
+                src="/logo.png"
+              />
+            </a>
+          </Link>
         </Flex>
         <Flex align="center" gap={4}>
           {account ? (
