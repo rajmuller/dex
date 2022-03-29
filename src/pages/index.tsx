@@ -1,4 +1,4 @@
-import { Flex, Button, Heading, Spinner } from "@chakra-ui/react";
+import { Flex, Heading, Spinner } from "@chakra-ui/react";
 import { useEthers } from "@usedapp/core";
 
 import { Container, Token } from "../components";
@@ -24,7 +24,6 @@ const Home = () => {
           <Token key={ticker} ticker={ticker} />
         ))}
       </Flex>
-      <Button>Load Tokens</Button>
       <div>{account && <p>Account: {account}</p>}</div>
     </Container>
   );

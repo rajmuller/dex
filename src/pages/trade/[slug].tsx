@@ -1,7 +1,7 @@
 import { Flex, Text, Select, Button, Heading } from "@chakra-ui/react";
 import { useEthers } from "@usedapp/core";
 
-import { useAddedTokenTickerList, useTokenBalance } from "../lib/hooks";
+import { useAddedTokenTickerList } from "../../lib/hooks";
 
 const Trade = () => {
   const { account } = useEthers();
