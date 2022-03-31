@@ -157,7 +157,7 @@ export const useTokenBalance = (address?: string): BalanceProps => {
   return balance;
 };
 
-export const useDexBalance = (ticker?: string) => {
+export const useDexTokenBalance = (ticker?: string) => {
   const [balance, setBalance] = useState({
     value: BigNumber.from(0),
   });
