@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useQueries, useQuery } from "react-query";
 import axios from "axios";
+import { formatBytes32String } from "ethers/lib/utils";
 
 import { Dex__factory, ERC20 } from "../../contract/typechain";
+
 import { Contracts } from "../config";
-import { formatBytes32String } from "ethers/lib/utils";
 
 export function useChainId() {
   const { chainId } = useEthers();
@@ -152,6 +153,35 @@ export const useTokenBalance = (address?: string): BalanceProps => {
     decimalsQuery.status,
     setBalance,
   ]);
+
+  return balance;
+};
+
+export const useDexBalance = (ticker?: string) => {
+  const [balance, setBalance] = useState({
+    value: BigNumber.from(0),
+  });
+
+  const { account } = useEthers();
+
+  const dex = useDex({ readOnly: true });
+
+  const balanceQuery = useQuery(
+    ["balance", "dex", account],
+    () => dex.balances(account!, ticker!),
+    {
+      enabled: !!account && !!ticker,
+      refetchInterval: 30 * 1000,
+    }
+  );
+
+  useEffect(() => {
+    if (balanceQuery.status === "success") {
+      setBalance({
+        value: balanceQuery.data,
+      });
+    }
+  }, [balanceQuery.data, balanceQuery.status, setBalance]);
 
   return balance;
 };

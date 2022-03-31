@@ -6,18 +6,16 @@ import { useToken } from "../../lib/hooks";
 
 const Trade = () => {
   const router = useRouter();
+  console.log({ router });
 
-  const { token: tickerString } = router.query;
-  const { data } = useToken(tickerString as string | undefined);
+  const tickerString = router.query.token as string | undefined;
+  const { data } = useToken(tickerString);
 
   return (
     <Container w="full" heading={`Buy & Sell ${tickerString}`}>
       <Flex justify="center" align="center" gap={6} w="100%">
-        <Orderbook ticker={tickerString as string | undefined} />
-        <TradeWindow
-          address={data?.tokenAddress}
-          ticker={tickerString as string | undefined}
-        />
+        <Orderbook ticker={tickerString} />
+        <TradeWindow address={data?.tokenAddress} ticker={tickerString} />
       </Flex>
     </Container>
   );

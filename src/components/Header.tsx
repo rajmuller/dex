@@ -23,9 +23,10 @@ const Overlay = ({ show }: { show: boolean }) => {
   useEffect(() => {
     if (show) {
       onOpen();
-    } else if (!show) {
-      onClose();
+      return;
     }
+
+    onClose();
   }, [show, onOpen, onClose]);
 
   return (
