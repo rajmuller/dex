@@ -2,14 +2,14 @@ import { Flex } from "@chakra-ui/react";
 import { useRouter } from "next/router";
 
 import { Container, Orderbook, TradeWindow } from "../../components";
-import { useToken } from "../../lib/hooks";
+import { useTokenAddress } from "../../lib/hooks";
 
 const Trade = () => {
   const router = useRouter();
   console.log({ router });
 
   const tickerString = router.query.token as string | undefined;
-  const { data } = useToken(tickerString);
+  const { data } = useTokenAddress(tickerString);
 
   return (
     <Container w="full" heading={`Buy & Sell ${tickerString}`}>

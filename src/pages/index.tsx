@@ -20,7 +20,7 @@ const Home = () => {
   return (
     <Container heading="Tradeable Tokens">
       <Flex gap={8}>
-        {data!.map((ticker) => (
+        {data?.map((ticker) => (
           <Token key={ticker} ticker={ticker} />
         ))}
       </Flex>

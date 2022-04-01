@@ -17,7 +17,7 @@ import { useEtherBalance, useEthers } from "@usedapp/core";
 import { formatEther } from "ethers/lib/utils";
 import { useState, Dispatch, SetStateAction, useCallback } from "react";
 
-import { useDexTokenBalance, useTokenBalance } from "../lib/hooks";
+import { useDexBalance, useTokenBalance } from "../lib/hooks";
 import { BigNumber } from "ethers";
 
 type TradeWindowProps = {
@@ -149,7 +149,7 @@ const TradeWindow = ({ ticker, address }: TradeWindowProps) => {
 
   const userBalance = useEtherBalance(account);
   const { value: userTokenBalance } = useTokenBalance(address);
-  const { value: dexBalance } = useDexTokenBalance(ticker);
+  const { value: dexBalance } = useDexBalance(ticker);
 
   console.log(dexBalance.toNumber());
 
