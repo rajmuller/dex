@@ -1,14 +1,69 @@
-import { ChainId, useEthers, useConfig, ERC20Interface } from "@usedapp/core";
-import { utils, Contract, providers, BytesLike, BigNumber } from "ethers";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { useQueries, useQuery } from "react-query";
-import axios from "axios";
-import { formatBytes32String } from "ethers/lib/utils";
+import { useMutation, useQueries, useQuery, useQueryClient } from "react-query";
+import { ChainId, useEthers, useConfig, ERC20Interface } from "@usedapp/core";
+import { Contract, providers, BigNumber } from "ethers";
+import { formatBytes32String, Interface, isAddress } from "ethers/lib/utils";
+import { JsonRpcSigner, Web3Provider } from "@ethersproject/providers";
+import { AddressZero } from "@ethersproject/constants";
 
-import { Dex__factory, ERC20 } from "../../contract/typechain";
+import { Dex__factory, ERC20, Dex } from "../../contract/typechain";
+import DexJson from "../../contract/artifacts/contracts/Dex.sol/Dex.json";
 
 import { Contracts } from "../config";
+
+const DexInterface = new Interface(DexJson.abi);
+
+// account is not optional
+const getSigner = (library: Web3Provider, account: string): JsonRpcSigner => {
+  return library.getSigner(account).connectUnchecked();
+};
+
+// account is optional
+const getProviderOrSigner = (
+  library: Web3Provider,
+  account?: string
+): Web3Provider | JsonRpcSigner => {
+  return account ? getSigner(library, account) : library;
+};
+
+// account is optional
+const getContract = (
+  address: string,
+  ABI: any,
+  library: Web3Provider,
+  account?: string
+): Contract => {
+  if (!isAddress(address) || address === AddressZero) {
+    throw Error(`Invalid 'address' parameter '${address}'.`);
+  }
+  return new Contract(address, ABI, getProviderOrSigner(library, account));
+};
+
+// returns null on errors
+const useContract = (
+  address: string | undefined,
+  ABI: any,
+  withSignerIfPossible = true
+): Contract | null => {
+  const { library, account } = useEthers();
+  return useMemo(() => {
+    if (!address || address === AddressZero || !ABI || !library) {
+      return null;
+    }
+    try {
+      return getContract(
+        address,
+        ABI,
+        library as Web3Provider,
+        withSignerIfPossible && account ? account : undefined
+      );
+    } catch (error) {
+      console.error("Failed to get contract", error);
+      return null;
+    }
+  }, [address, ABI, library, withSignerIfPossible, account]);
+};
 
 export function useChainId() {
   const { chainId } = useEthers();
@@ -21,28 +76,35 @@ export function useChainId() {
   }
 }
 
-const useDex = (args: { readOnly: boolean }) => {
-  const { readOnlyUrls } = useConfig();
+export function useTokenContract(
+  tokenAddress?: string,
+  withSignerIfPossible?: boolean
+): ERC20 | null {
+  return useContract(
+    tokenAddress,
+    ERC20Interface,
+    withSignerIfPossible
+  ) as unknown as ERC20;
+}
+
+const useDexContract = (withSignerIfPossible?: boolean): Dex => {
   const chainId = useChainId();
-
-  if (args?.readOnly === false) {
-    // @ts-ignore
-    const provider = new providers.Web3Provider(window.ethereum);
-    const signer = provider.getSigner();
-    return Dex__factory.connect(Contracts[chainId].dex, signer);
-  }
-
-  const provider = new providers.JsonRpcProvider(readOnlyUrls![chainId]);
-  return Dex__factory.connect(Contracts[chainId].dex, provider);
+  const dex = useContract(
+    Contracts[chainId].dex,
+    DexInterface,
+    withSignerIfPossible
+  ) as unknown as Dex;
+  return dex;
 };
 
 export const useTickerList = () => {
-  const dex = useDex({ readOnly: true });
+  const dex = useDexContract();
   const { data, status, error } = useQuery(
     "addedTokenTickers",
-    () => dex.getTokenList(),
+    () => dex!.getTokenList(),
     {
       refetchInterval: 30 * 1000,
+      enabled: !!dex,
     }
   );
 
@@ -58,25 +120,27 @@ export const useTickerList = () => {
 };
 
 export const useAddressList = () => {
-  const dex = useDex({ readOnly: true });
+  const dex = useDexContract();
+
   const { data, status } = useQuery(
     "addedTokenAddresses",
-    () => dex.getAddressList(),
+    () => dex!.getAddressList(),
     {
       refetchInterval: 30 * 1000,
+      enabled: !!dex,
     }
   );
   return { data, status };
 };
 
 export const useToken = (ticker?: string) => {
-  const dex = useDex({ readOnly: true });
+  const dex = useDexContract();
   const { data, status, error } = useQuery(
     ["token", ticker],
-    () => dex.tokenMapping(formatBytes32String(ticker!)),
+    () => dex!.tokenMapping(formatBytes32String(ticker!)),
     {
       refetchInterval: 30 * 1000,
-      enabled: !!ticker,
+      enabled: !!ticker && !!dex,
     }
   );
 
@@ -164,7 +228,7 @@ export const useDexTokenBalance = (ticker?: string) => {
 
   const { account } = useEthers();
 
-  const dex = useDex({ readOnly: true });
+  const dex = useDexContract();
 
   const balanceQuery = useQuery(
     ["balance", "dex", account],
@@ -186,13 +250,41 @@ export const useDexTokenBalance = (ticker?: string) => {
   return balance;
 };
 
+// const useApprove = (ticker: string, amount: BigNumber) => {
+//   const queryClient = useQueryClient();
+
+//   const dex = useDex({ readOnly: false });
+
+//   // When this mutation succeeds, invalidate any queries with the `todos` or `reminders` query key
+//   const mutation = useMutation(() => dex., {
+//     onSuccess: () => {
+//       queryClient.invalidateQueries("todos");
+//       queryClient.invalidateQueries("reminders");
+//     },
+//   });
+// };
+
+// const useDeposit = (ticker: string, amount: BigNumber) => {
+//   const queryClient = useQueryClient();
+
+//   const dex = useDex({ readOnly: false });
+
+//   // When this mutation succeeds, invalidate any queries with the `todos` or `reminders` query key
+//   const mutation = useMutation(() => dex., {
+//     onSuccess: () => {
+//       queryClient.invalidateQueries("todos");
+//       queryClient.invalidateQueries("reminders");
+//     },
+//   });
+// };
+
 enum Side {
   BUY,
   SELL,
 }
 
 export const useOrderbook = (ticker?: string) => {
-  const dex = useDex({ readOnly: true });
+  const dex = useDexContract();
 
   const buyOrders = useQuery(
     ["orderbook", "buy"],
