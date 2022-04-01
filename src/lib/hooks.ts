@@ -1,25 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
-import toast from "react-hot-toast";
-import { useMutation, useQueries, useQuery, useQueryClient } from "react-query";
-import { ChainId, useEthers, useConfig, ERC20Interface } from "@usedapp/core";
-import { Contract, providers, BigNumber } from "ethers";
-import { formatBytes32String, Interface, isAddress } from "ethers/lib/utils";
-import { JsonRpcSigner, Web3Provider } from "@ethersproject/providers";
 import { AddressZero } from "@ethersproject/constants";
-
-import { Dex__factory, ERC20, Dex } from "../../contract/typechain";
+import { JsonRpcSigner, Web3Provider } from "@ethersproject/providers";
+import { ChainId, ERC20Interface, useEthers } from "@usedapp/core";
+import { Contract } from "ethers";
+import {
+  formatBytes32String,
+  Interface,
+  isAddress,
+  parseBytes32String,
+} from "ethers/lib/utils";
+import { useMemo } from "react";
+import { useQuery } from "react-query";
 import DexJson from "../../contract/artifacts/contracts/Dex.sol/Dex.json";
-
-import { Contracts } from "../config";
+import { Dex, ERC20 } from "../../contract/typechain";
+import { Contracts, NATIVE_CURRENCY } from "../config";
 
 const DexInterface = new Interface(DexJson.abi);
 
-// account is not optional
 const getSigner = (library: Web3Provider, account: string): JsonRpcSigner => {
   return library.getSigner(account).connectUnchecked();
 };
 
-// account is optional
 const getProviderOrSigner = (
   library: Web3Provider,
   account?: string
@@ -27,7 +27,6 @@ const getProviderOrSigner = (
   return account ? getSigner(library, account) : library;
 };
 
-// account is optional
 const getContract = (
   address: string,
   ABI: any,
@@ -40,7 +39,6 @@ const getContract = (
   return new Contract(address, ABI, getProviderOrSigner(library, account));
 };
 
-// returns null on errors
 const useContract = (
   address: string | undefined,
   ABI: any,
@@ -87,8 +85,9 @@ export function useTokenContract(
   ) as unknown as ERC20;
 }
 
-const useDexContract = (withSignerIfPossible?: boolean): Dex => {
+const useDexContract = (withSignerIfPossible?: boolean): Dex | null => {
   const chainId = useChainId();
+
   const dex = useContract(
     Contracts[chainId].dex,
     DexInterface,
@@ -99,155 +98,109 @@ const useDexContract = (withSignerIfPossible?: boolean): Dex => {
 
 export const useTickerList = () => {
   const dex = useDexContract();
-  const { data, status, error } = useQuery(
-    "addedTokenTickers",
-    () => dex!.getTokenList(),
-    {
-      refetchInterval: 30 * 1000,
-      enabled: !!dex,
-    }
-  );
+  const tickerListQuery = useQuery("tickers", () => dex!.getTokenList(), {
+    enabled: !!dex,
+  });
 
-  useEffect(() => {
-    switch (status) {
-      case "error":
-        toast.error(`Failed loading tickers: ${error}`);
-        break;
-    }
-  }, [error, status]);
-
-  return { data, status };
+  return tickerListQuery;
 };
 
 export const useAddressList = () => {
   const dex = useDexContract();
 
-  const { data, status } = useQuery(
-    "addedTokenAddresses",
-    () => dex!.getAddressList(),
-    {
-      refetchInterval: 30 * 1000,
-      enabled: !!dex,
-    }
-  );
-  return { data, status };
+  const addressListQuery = useQuery("addresses", () => dex!.getAddressList(), {
+    enabled: !!dex,
+  });
+  return addressListQuery;
 };
 
-export const useToken = (ticker?: string) => {
+export const useTokenAddress = (ticker?: string) => {
   const dex = useDexContract();
-  const { data, status, error } = useQuery(
-    ["token", ticker],
-    () => dex!.tokenMapping(formatBytes32String(ticker!)),
+
+  const tokenDetails = useQuery(
+    ["address", ticker],
+    () => dex!.tokenMapping(ticker!),
     {
-      refetchInterval: 30 * 1000,
       enabled: !!ticker && !!dex,
     }
   );
 
-  useEffect(() => {
-    switch (status) {
-      case "error":
-        toast.error(`Failed loading ${ticker} token: ${error}`);
-        break;
-    }
-  }, [error, status, ticker]);
-
-  return { data, status };
+  return tokenDetails.data?.tokenAddress;
 };
 
-type BalanceProps = {
-  value: BigNumber;
-  decimals: number;
-};
-
-export const useTokenBalance = (address?: string): BalanceProps => {
-  const [balance, setBalance] = useState<BalanceProps>({
-    value: BigNumber.from(0),
-    decimals: 18,
-  });
-
-  const { account } = useEthers();
-  const { readOnlyUrls } = useConfig();
+export const useIsNative = (ticker?: string) => {
   const chainId = useChainId();
 
-  const provider = new providers.JsonRpcProvider(readOnlyUrls![chainId]);
+  if (!ticker) {
+    return null;
+  }
 
-  const erc20 = address
-    ? (new Contract(address!, ERC20Interface, provider) as unknown as ERC20)
-    : null;
+  return parseBytes32String(ticker) === NATIVE_CURRENCY[chainId];
+};
 
-  const decimalsQuery = useQuery(
-    ["decimals", address],
-    () =>
-      (
-        new Contract(address!, ERC20Interface, provider) as unknown as ERC20
-      ).decimals(),
+export const useNativeBalance = () => {
+  const { account, library } = useEthers();
+
+  const balanceQuery = useQuery(
+    ["balance", "native"],
+    () => getSigner(library as Web3Provider, account!).getBalance(),
     {
-      enabled: !!account && !!erc20,
-      refetchInterval: 30 * 1000,
+      enabled: !!account && !!library,
     }
   );
+
+  return balanceQuery;
+};
+
+export const useTokenBalance = (address?: string) => {
+  const { account } = useEthers();
+
+  const contract = useTokenContract(address);
 
   const balanceQuery = useQuery(
     ["balance", address],
-    () =>
-      (
-        new Contract(address!, ERC20Interface, provider) as unknown as ERC20
-      ).balanceOf(account!),
+    () => contract!.balanceOf(account!),
     {
-      enabled: !!account && !!erc20,
-      refetchInterval: 30 * 1000,
+      enabled: !!account && !!contract,
     }
   );
 
-  useEffect(() => {
-    if (
-      balanceQuery.status === "success" &&
-      decimalsQuery.status === "success"
-    ) {
-      setBalance({
-        value: balanceQuery.data,
-        decimals: decimalsQuery.data,
-      });
-    }
-  }, [
-    balanceQuery.data,
-    balanceQuery.status,
-    decimalsQuery.data,
-    decimalsQuery.status,
-    setBalance,
-  ]);
-
-  return balance;
+  return balanceQuery;
 };
 
-export const useDexTokenBalance = (ticker?: string) => {
-  const [balance, setBalance] = useState({
-    value: BigNumber.from(0),
-  });
-
+export const useDexBalance = (ticker?: string) => {
   const { account } = useEthers();
+  const isNative = useIsNative(ticker);
 
+  const tokenOrNativeTicker = isNative ? formatBytes32String("ETH") : ticker;
   const dex = useDexContract();
 
   const balanceQuery = useQuery(
-    ["balance", "dex", account],
-    () => dex.balances(account!, ticker!),
+    ["balance", "dex", tokenOrNativeTicker],
+    () => dex!.balances(account!, tokenOrNativeTicker!),
     {
-      enabled: !!account && !!ticker,
-      refetchInterval: 30 * 1000,
+      enabled: !!account && !!tokenOrNativeTicker && !!dex,
     }
   );
 
-  useEffect(() => {
-    if (balanceQuery.status === "success") {
-      setBalance({
-        value: balanceQuery.data,
-      });
-    }
-  }, [balanceQuery.data, balanceQuery.status, setBalance]);
+  return balanceQuery;
+};
 
-  return balance;
+export const useAllowance = (address?: string) => {
+  const { account } = useEthers();
+  const chainId = useChainId();
+
+  const contract = useTokenContract(address);
+
+  const allowance = useQuery(
+    ["allowance", address],
+    () => contract!.allowance(account!, Contracts[chainId].dex),
+    {
+      enabled: !!contract && !!account,
+    }
+  );
+
+  return allowance;
 };
 
 // const useApprove = (ticker: string, amount: BigNumber) => {
@@ -283,19 +236,19 @@ enum Side {
   SELL,
 }
 
-export const useOrderbook = (ticker?: string) => {
-  const dex = useDexContract();
+// export const useOrderbook = (ticker?: string) => {
+//   const dex = useDexContract();
 
-  const buyOrders = useQuery(
-    ["orderbook", "buy"],
-    () => dex.getOrderBook(formatBytes32String(ticker!), Side.BUY),
-    { enabled: !!ticker }
-  );
-  const sellOrders = useQuery(
-    ["orderbook", "sell"],
-    () => dex.getOrderBook(formatBytes32String(ticker!), Side.SELL),
-    { enabled: !!ticker }
-  );
+//   const buyOrders = useQuery(
+//     ["orderbook", "buy"],
+//     () => dex.getOrderBook(formatBytes32String(ticker!), Side.BUY),
+//     { enabled: !!ticker }
+//   );
+//   const sellOrders = useQuery(
+//     ["orderbook", "sell"],
+//     () => dex.getOrderBook(formatBytes32String(ticker!), Side.SELL),
+//     { enabled: !!ticker }
+//   );
 
-  return { buyOrders, sellOrders };
-};
+//   return { buyOrders, sellOrders };
+// };
