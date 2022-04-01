@@ -1,45 +1,102 @@
 import {
+  Button,
   Flex,
+  FormControl,
+  FormLabel,
   Heading,
+  Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   Spinner,
   Table,
   TableCaption,
   TableContainer,
   Tbody,
   Td,
+  Text,
   Th,
   Thead,
   Tr,
-  Text,
-  Button,
+  useDisclosure,
 } from "@chakra-ui/react";
-import { useEtherBalance, useEthers } from "@usedapp/core";
 import {
   formatBytes32String,
   formatEther,
   parseBytes32String,
 } from "ethers/lib/utils";
-
-import { Container, Logo, Token } from "../components";
 import {
+  Dispatch,
+  MutableRefObject,
+  SetStateAction,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
+import { Container, Logo } from "../components";
+import {
+  useAllowance,
+  useDexBalance,
+  useIsNative,
+  useNativeBalance,
   useTickerList,
+  useTokenAddress,
   useTokenBalance,
-  useToken,
-  useDexTokenBalance,
 } from "../lib/hooks";
 
-type TokenRowProps = {
+type ActionButtonsProps = {
+  ticker: string;
+  setActiveTicker: Dispatch<SetStateAction<string | undefined>>;
+  onOpen: () => void;
+};
+
+const ActionButtons = ({
+  ticker,
+  onOpen,
+  setActiveTicker,
+}: ActionButtonsProps) => {
+  const handleDeposit = useCallback(
+    (ticker: string) => {
+      setActiveTicker(ticker);
+      onOpen();
+    },
+    [onOpen, setActiveTicker]
+  );
+
+  return (
+    <Flex gap={4}>
+      <Button
+        onClick={() => handleDeposit(ticker)}
+        colorScheme="green"
+        size="sm"
+      >
+        Deposit
+      </Button>
+      <Button colorScheme="red" size="sm">
+        Withdraw
+      </Button>
+    </Flex>
+  );
+};
+
+type TokenRowProps = ActionButtonsProps & {
   ticker: string;
 };
 
-const TokenRow = ({ ticker }: TokenRowProps) => {
+const TokenRow = ({ ticker, onOpen, setActiveTicker }: TokenRowProps) => {
   const tickerString = parseBytes32String(ticker);
-  const { data } = useToken(tickerString);
+  const tokenAddress = useTokenAddress(ticker);
+  const isNative = useIsNative(ticker);
 
-  const { value } = useTokenBalance(data?.tokenAddress);
-  const { value: dexBalance } = useDexTokenBalance(ticker);
+  const { data: nativeBalance } = useNativeBalance();
+  const { data: tokenBalance } = useTokenBalance(tokenAddress);
+  const { data: dexBalance } = useDexBalance(ticker);
 
-  console.log({ value });
+  const balance = isNative ? nativeBalance : tokenBalance;
 
   return (
     <Tr>
@@ -49,32 +106,98 @@ const TokenRow = ({ ticker }: TokenRowProps) => {
           <Text>{tickerString}</Text>
         </Flex>
       </Td>
-
-      <Td isNumeric>{formatEther(value)}</Td>
-      <Td isNumeric>{formatEther(dexBalance)}</Td>
+      <Td isNumeric>
+        {balance ? formatEther(balance) : <Spinner size="sm" />}
+      </Td>
+      <Td isNumeric>
+        {dexBalance ? formatEther(dexBalance) : <Spinner size="sm" />}
+      </Td>
       <Td>
-        <Flex gap={4}>
-          <Button colorScheme="green" size="sm">
-            Deposit
-          </Button>
-          <Button colorScheme="red" size="sm">
-            Withdraw
-          </Button>
-        </Flex>
+        <ActionButtons
+          onOpen={onOpen}
+          setActiveTicker={setActiveTicker}
+          ticker={ticker}
+        />
       </Td>
     </Tr>
   );
 };
 
-const Wallet = () => {
-  const { account } = useEthers();
-  const nativeBalance = useEtherBalance(account);
-  const { value: dexNativeBalance } = useDexTokenBalance(
-    formatBytes32String("ETH")
-  );
-  const { data, status } = useTickerList();
+type ActionModalProps = {
+  initialRef: MutableRefObject<null>;
+  isOpen: boolean;
+  onClose: () => void;
+  ticker?: string;
+};
 
-  if (status === "loading" || !nativeBalance) {
+const DepositModal = ({
+  initialRef,
+  isOpen,
+  onClose,
+  ticker,
+}: ActionModalProps) => {
+  const tokenAddress = useTokenAddress(ticker);
+  const { data: allowanceData } = useAllowance(tokenAddress);
+
+  console.log({ allowanceData });
+
+  if (!ticker) {
+    return null;
+  }
+
+  return (
+    <Modal
+      size="xs"
+      initialFocusRef={initialRef}
+      isOpen={isOpen}
+      onClose={onClose}
+    >
+      <ModalOverlay />
+      <ModalContent backgroundColor="gray.800">
+        <ModalHeader>Deposit {parseBytes32String(ticker)}</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody pb={6}>
+          <FormControl>
+            <FormLabel>Amount</FormLabel>
+            <Input
+              borderWidth={0}
+              borderBottomWidth={1}
+              borderRadius="none"
+              pl={0}
+              ref={initialRef}
+              placeholder="0"
+              type="number"
+              _focus={{
+                outline: "none",
+              }}
+            />
+          </FormControl>
+        </ModalBody>
+
+        <ModalFooter>
+          <Flex direction="column">
+            <Button colorScheme="purple" w="full">
+              Deposit
+            </Button>
+            <Text mt={4} fontSize="xs">
+              * Save MATIC in Wallet for gas & Do not deposit more than in
+              Wallet
+            </Text>
+          </Flex>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+};
+
+const Wallet = () => {
+  const initialRef = useRef(null);
+  const [activeTicker, setActiveTicker] = useState<string>();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+
+  const { data: tickerList, status } = useTickerList();
+
+  if (status === "loading" || !tickerList?.length) {
     return (
       <Container heading="Deposit & Withdraw">
         <Heading>Loading tokens...</Heading>
@@ -83,47 +206,42 @@ const Wallet = () => {
     );
   }
 
+  const tickerListWithNative = [formatBytes32String("MATIC"), ...tickerList];
+
   return (
     <Container heading="Deposit & Withdraw">
       <TableContainer>
         <Table variant="simple">
-          <TableCaption>Imperial to metric conversion factors</TableCaption>
+          <TableCaption>
+            * Deposit from Wallet to Trade Account to be able to buy and sell
+            tokens
+          </TableCaption>
           <Thead>
             <Tr>
               <Th>Token</Th>
               <Th>Wallet</Th>
-              <Th>Dex</Th>
-              <Th>Action</Th>
+              <Th>Trade Account</Th>
+              <Th isNumeric>Action</Th>
             </Tr>
           </Thead>
           <Tbody>
-            <Tr>
-              <Td>
-                <Flex align="center" gap={2}>
-                  <Logo ticker="MATIC" />
-                  <Text>MATIC</Text>
-                </Flex>
-              </Td>
-
-              <Td isNumeric>{formatEther(nativeBalance)}</Td>
-              <Td isNumeric>{formatEther(dexNativeBalance)}</Td>
-              <Td>
-                <Flex gap={4}>
-                  <Button colorScheme="green" size="sm">
-                    Deposit
-                  </Button>
-                  <Button colorScheme="red" size="sm">
-                    Withdraw
-                  </Button>
-                </Flex>
-              </Td>
-            </Tr>
-            {data?.map((ticker) => (
-              <TokenRow key={ticker} ticker={ticker} />
+            {tickerListWithNative.map((ticker) => (
+              <TokenRow
+                key={ticker}
+                ticker={ticker}
+                onOpen={onOpen}
+                setActiveTicker={setActiveTicker}
+              />
             ))}
           </Tbody>
         </Table>
       </TableContainer>
+      <DepositModal
+        isOpen={isOpen}
+        ticker={activeTicker}
+        onClose={onClose}
+        initialRef={initialRef}
+      />
     </Container>
   );
 };
