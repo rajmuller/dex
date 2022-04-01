@@ -11,6 +11,10 @@ export const Contracts = {
   },
 };
 
+export const NATIVE_CURRENCY = {
+  [ChainId.Mumbai]: "MATIC",
+};
+
 export const ContractOwners = {
   [ChainId.Polygon]: "test",
   [ChainId.Mumbai]: "0x4c7f83d25bcefb3f7ae61c3a85a5b2037b37b994",
