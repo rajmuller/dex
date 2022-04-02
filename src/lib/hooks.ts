@@ -1,15 +1,16 @@
 import { AddressZero } from "@ethersproject/constants";
 import { JsonRpcSigner, Web3Provider } from "@ethersproject/providers";
 import { ChainId, ERC20Interface, useEthers } from "@usedapp/core";
-import { Contract } from "ethers";
+import { BigNumber, Contract } from "ethers";
 import {
   formatBytes32String,
   Interface,
   isAddress,
   parseBytes32String,
 } from "ethers/lib/utils";
-import { useMemo } from "react";
-import { useQuery } from "react-query";
+import { useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
+import { useMutation, useQuery, useQueryClient } from "react-query";
 import DexJson from "../../contract/artifacts/contracts/Dex.sol/Dex.json";
 import { Dex, ERC20 } from "../../contract/typechain";
 import { Contracts, NATIVE_CURRENCY } from "../config";
@@ -63,17 +64,6 @@ const useContract = (
   }, [address, ABI, library, withSignerIfPossible, account]);
 };
 
-export function useChainId() {
-  const { chainId } = useEthers();
-
-  switch (chainId) {
-    case ChainId.Mumbai:
-      return chainId;
-    default:
-      return ChainId.Mumbai;
-  }
-}
-
 export function useTokenContract(
   tokenAddress?: string,
   withSignerIfPossible?: boolean
@@ -83,6 +73,17 @@ export function useTokenContract(
     ERC20Interface,
     withSignerIfPossible
   ) as unknown as ERC20;
+}
+
+export function useChainId() {
+  const { chainId } = useEthers();
+
+  switch (chainId) {
+    case ChainId.Mumbai:
+      return chainId;
+    default:
+      return ChainId.Mumbai;
+  }
 }
 
 const useDexContract = (withSignerIfPossible?: boolean): Dex | null => {
@@ -97,7 +98,7 @@ const useDexContract = (withSignerIfPossible?: boolean): Dex | null => {
 };
 
 export const useTickerList = () => {
-  const dex = useDexContract();
+  const dex = useDexContract(false);
   const tickerListQuery = useQuery("tickers", () => dex!.getTokenList(), {
     enabled: !!dex,
   });
@@ -106,7 +107,7 @@ export const useTickerList = () => {
 };
 
 export const useAddressList = () => {
-  const dex = useDexContract();
+  const dex = useDexContract(false);
 
   const addressListQuery = useQuery("addresses", () => dex!.getAddressList(), {
     enabled: !!dex,
@@ -115,7 +116,7 @@ export const useAddressList = () => {
 };
 
 export const useTokenAddress = (ticker?: string) => {
-  const dex = useDexContract();
+  const dex = useDexContract(false);
 
   const tokenDetails = useQuery(
     ["address", ticker],
@@ -155,7 +156,7 @@ export const useNativeBalance = () => {
 export const useTokenBalance = (address?: string) => {
   const { account } = useEthers();
 
-  const contract = useTokenContract(address);
+  const contract = useTokenContract(address, false);
 
   const balanceQuery = useQuery(
     ["balance", address],
@@ -190,32 +191,108 @@ export const useAllowance = (address?: string) => {
   const { account } = useEthers();
   const chainId = useChainId();
 
-  const contract = useTokenContract(address);
-
+  const contract = useTokenContract(address, false);
   const allowance = useQuery(
     ["allowance", address],
     () => contract!.allowance(account!, Contracts[chainId].dex),
     {
-      enabled: !!contract && !!account,
+      enabled: !!contract && !!account && !!address,
+      refetchInterval: 60 * 1000,
     }
   );
 
   return allowance;
 };
 
-// const useApprove = (ticker: string, amount: BigNumber) => {
-//   const queryClient = useQueryClient();
+export enum ApprovalState {
+  // bug
+  // eslint-disable-next-line no-unused-vars
+  UNKNOWN = "UNKNOWN",
+  // eslint-disable-next-line no-unused-vars
+  NOT_APPROVED = "NOT_APPROVED",
+  // eslint-disable-next-line no-unused-vars
+  APPROVED = "APPROVED",
+  // eslint-disable-next-line no-unused-vars
+  PENDING = "PENDING",
+}
 
-//   const dex = useDex({ readOnly: false });
+export const useApprove = (
+  ticker?: string,
+  tokenAddress?: string,
+  amountToApprove?: BigNumber
+) => {
+  const [approvalState, setApprovalState] = useState(ApprovalState.UNKNOWN);
 
-//   // When this mutation succeeds, invalidate any queries with the `todos` or `reminders` query key
-//   const mutation = useMutation(() => dex., {
-//     onSuccess: () => {
-//       queryClient.invalidateQueries("todos");
-//       queryClient.invalidateQueries("reminders");
-//     },
-//   });
-// };
+  const chainId = useChainId();
+  const isNative = useIsNative(ticker);
+  const queryClient = useQueryClient();
+  const tokenContract = useTokenContract(tokenAddress);
+  const { data: currentAllowance } = useAllowance(tokenAddress);
+  console.log({ amountToApprove: amountToApprove?.toString() });
+
+  useEffect(() => {
+    if (!amountToApprove) {
+      setApprovalState(ApprovalState.UNKNOWN);
+      return;
+    }
+    if (isNative) {
+      console.log("native!");
+
+      setApprovalState(ApprovalState.APPROVED);
+      return;
+    }
+    // we might not have enough data to know whether or not we need to approve
+    if (!currentAllowance) {
+      setApprovalState(ApprovalState.UNKNOWN);
+      return;
+    }
+
+    // amountToApprove will be defined if currentAllowance is
+    if (currentAllowance.lt(amountToApprove)) {
+      setApprovalState(ApprovalState.NOT_APPROVED);
+      return;
+    }
+    console.log("gt");
+    setApprovalState(ApprovalState.APPROVED);
+  }, [amountToApprove, currentAllowance, isNative]);
+
+  // When this mutation succeeds, invalidate any queries with the `todos` or `reminders` query key
+  const mutation = useMutation(
+    () => tokenContract!.approve(Contracts[chainId].dex, amountToApprove!),
+    {
+      onSuccess: () => {
+        console.log("success");
+        queryClient.invalidateQueries("allowance");
+        setApprovalState(ApprovalState.APPROVED);
+        toast.success("Successfully approved spending limit");
+      },
+      onMutate: () => {
+        setApprovalState(ApprovalState.PENDING);
+      },
+    }
+  );
+
+  const approve = () => {
+    if (approvalState !== ApprovalState.NOT_APPROVED) {
+      console.error("approve was called unnecessarily");
+      return;
+    }
+
+    if (!tokenContract) {
+      console.error("tokenContract is null");
+      return;
+    }
+
+    if (amountToApprove?.eq(0)) {
+      console.error("missing amount to approve");
+      return;
+    }
+
+    return mutation.mutate();
+  };
+
+  return { approvalState, approve, mutation };
+};
 
 // const useDeposit = (ticker: string, amount: BigNumber) => {
 //   const queryClient = useQueryClient();

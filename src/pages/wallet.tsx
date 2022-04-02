@@ -24,6 +24,7 @@ import {
   Tr,
   useDisclosure,
 } from "@chakra-ui/react";
+import { BigNumber } from "ethers";
 import {
   formatBytes32String,
   formatEther,
@@ -39,7 +40,8 @@ import {
 } from "react";
 import { Container, Logo } from "../components";
 import {
-  useAllowance,
+  ApprovalState,
+  useApprove,
   useDexBalance,
   useIsNative,
   useNativeBalance,
@@ -78,6 +80,9 @@ const ActionButtons = ({
       </Button>
       <Button colorScheme="red" size="sm">
         Withdraw
+      </Button>
+      <Button colorScheme="blue" size="sm">
+        Trade
       </Button>
     </Flex>
   );
@@ -128,6 +133,27 @@ type ActionModalProps = {
   isOpen: boolean;
   onClose: () => void;
   ticker?: string;
+  amount: string;
+  setAmount: Dispatch<SetStateAction<string>>;
+};
+
+const getDepositButtonText = (
+  approvalState: ApprovalState,
+  tickerString?: string
+) => {
+  switch (approvalState) {
+    case ApprovalState.PENDING:
+      return `Approving ${tickerString}`;
+
+    case ApprovalState.NOT_APPROVED:
+      return `Approve ${tickerString}`;
+
+    case ApprovalState.APPROVED:
+      return "Deposit";
+
+    default:
+      return "Deposit";
+  }
 };
 
 const DepositModal = ({
@@ -135,11 +161,18 @@ const DepositModal = ({
   isOpen,
   onClose,
   ticker,
+  amount,
+  setAmount,
 }: ActionModalProps) => {
   const tokenAddress = useTokenAddress(ticker);
-  const { data: allowanceData } = useAllowance(tokenAddress);
+  const {
+    approvalState,
+    approve,
+    mutation: { status },
+  } = useApprove(ticker, tokenAddress, BigNumber.from(amount || 0));
 
-  console.log({ allowanceData });
+  console.log({ approvalState });
+  console.log({ status });
 
   if (!ticker) {
     return null;
@@ -165,7 +198,10 @@ const DepositModal = ({
               borderRadius="none"
               pl={0}
               ref={initialRef}
+              disabled={approvalState === ApprovalState.PENDING}
               placeholder="0"
+              onChange={(e) => setAmount(e.target.value)}
+              value={amount}
               type="number"
               _focus={{
                 outline: "none",
@@ -176,8 +212,13 @@ const DepositModal = ({
 
         <ModalFooter>
           <Flex direction="column">
-            <Button colorScheme="purple" w="full">
-              Deposit
+            <Button
+              disabled={!tokenAddress}
+              onClick={approve}
+              colorScheme="purple"
+              w="full"
+            >
+              {getDepositButtonText(approvalState, parseBytes32String(ticker))}
             </Button>
             <Text mt={4} fontSize="xs">
               * Save MATIC in Wallet for gas & Do not deposit more than in
@@ -193,7 +234,14 @@ const DepositModal = ({
 const Wallet = () => {
   const initialRef = useRef(null);
   const [activeTicker, setActiveTicker] = useState<string>();
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [amount, setAmount] = useState("");
+  const { isOpen, onOpen, onClose: closeModal } = useDisclosure();
+
+  const onClose = useCallback(() => {
+    setActiveTicker(undefined);
+    setAmount("0");
+    closeModal();
+  }, [closeModal]);
 
   const { data: tickerList, status } = useTickerList();
 
@@ -241,6 +289,8 @@ const Wallet = () => {
         ticker={activeTicker}
         onClose={onClose}
         initialRef={initialRef}
+        amount={amount}
+        setAmount={setAmount}
       />
     </Container>
   );

@@ -20,7 +20,7 @@ const Overlay = () => {
   const { chainId } = useEthers();
 
   useEffect(() => {
-    if (chainId !== ChainId.Mumbai) {
+    if (chainId && chainId !== ChainId.Mumbai) {
       onOpen();
       return;
     }
@@ -28,7 +28,7 @@ const Overlay = () => {
     onClose();
   }, [onOpen, onClose, chainId]);
 
-  // TODO: switch should be automatic
+  // TODO: switch to mumbai should be automatic
 
   return (
     <Modal

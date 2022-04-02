@@ -1,12 +1,11 @@
+import { ChakraProvider } from "@chakra-ui/react";
+import { ChainId, Config, DAppProvider } from "@usedapp/core";
 import { AppProps } from "next/app";
 import Head from "next/head";
-import { ChakraProvider } from "@chakra-ui/react";
-import { DAppProvider, Config, ChainId } from "@usedapp/core";
 import { QueryClient, QueryClientProvider } from "react-query";
 import { ReactQueryDevtools } from "react-query/devtools";
-
-import theme from "../theme";
 import { Layout } from "../components";
+import theme from "../theme";
 
 const config: Config = {
   readOnlyChainId: ChainId.Mumbai,
@@ -18,7 +17,7 @@ const config: Config = {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchInterval: 5000,
+      refetchInterval: 20 * 1000,
     },
   },
 });
