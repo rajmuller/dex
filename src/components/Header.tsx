@@ -1,40 +1,45 @@
-import { useEffect, useState } from "react";
 import {
   Button,
   chakra,
   Flex,
-  Text,
   Modal,
   ModalBody,
-  ModalCloseButton,
   ModalContent,
-  ModalFooter,
   ModalHeader,
   ModalOverlay,
+  Text,
   useDisclosure,
 } from "@chakra-ui/react";
+import { ChainId, useEthers } from "@usedapp/core";
 import Image from "next/image";
-import { useEthers } from "@usedapp/core";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
-const Overlay = ({ show }: { show: boolean }) => {
+const Overlay = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { chainId } = useEthers();
 
   useEffect(() => {
-    if (show) {
+    if (chainId !== ChainId.Mumbai) {
       onOpen();
       return;
     }
 
     onClose();
-  }, [show, onOpen, onClose]);
+  }, [onOpen, onClose, chainId]);
+
+  // TODO: switch should be automatic
 
   return (
-    <Modal closeOnOverlayClick={false} isOpen={isOpen} onClose={onClose}>
-      <ModalOverlay />
+    <Modal
+      closeOnEsc={false}
+      onClose={onClose}
+      closeOnOverlayClick={false}
+      isOpen={isOpen}
+    >
+      <ModalOverlay backgroundColor="blackAlpha.800" />
       <ModalContent color="white" bg="gray.800">
-        <ModalHeader>Wrong Network</ModalHeader>
-        <ModalCloseButton />
+        <ModalHeader>Wrong Network !</ModalHeader>
         <ModalBody pb={6}>
           <chakra.a
             color="blue.500"
@@ -46,19 +51,13 @@ const Overlay = ({ show }: { show: boolean }) => {
             Please switch to Mumbai-Testnet!
           </chakra.a>
         </ModalBody>
-
-        <ModalFooter>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-        </ModalFooter>
       </ModalContent>
     </Modal>
   );
 };
 
 const Header = () => {
-  const [activateError, setActivateError] = useState("");
+  const [, setActivateError] = useState("");
   const { error, activateBrowserWallet, account } = useEthers();
   useEffect(() => {
     if (error) {
@@ -108,7 +107,8 @@ const Header = () => {
           )}
         </Flex>
       </Flex>
-      <Flex w="100vw" h={0.25} bg="rgba(255,255,255,0.1)"></Flex>
+      <Flex w="100%" h={0.25} bg="rgba(255,255,255,0.1)" />
+      <Overlay />
     </>
   );
 };
