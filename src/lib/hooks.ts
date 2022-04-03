@@ -228,46 +228,39 @@ export const useApprove = (
   const queryClient = useQueryClient();
   const tokenContract = useTokenContract(tokenAddress);
   const { data: currentAllowance } = useAllowance(tokenAddress);
-  console.log({ amountToApprove: amountToApprove?.toString() });
-
-  useEffect(() => {
-    if (!amountToApprove) {
-      setApprovalState(ApprovalState.UNKNOWN);
-      return;
-    }
-    if (isNative) {
-      console.log("native!");
-
-      setApprovalState(ApprovalState.APPROVED);
-      return;
-    }
-    // we might not have enough data to know whether or not we need to approve
-    if (!currentAllowance) {
-      setApprovalState(ApprovalState.UNKNOWN);
-      return;
-    }
-
-    // amountToApprove will be defined if currentAllowance is
-    if (currentAllowance.lt(amountToApprove)) {
-      setApprovalState(ApprovalState.NOT_APPROVED);
-      return;
-    }
-    console.log("gt");
-    setApprovalState(ApprovalState.APPROVED);
-  }, [amountToApprove, currentAllowance, isNative]);
 
   // When this mutation succeeds, invalidate any queries with the `todos` or `reminders` query key
   const mutation = useMutation(
-    () => tokenContract!.approve(Contracts[chainId].dex, amountToApprove!),
+    () =>
+      tokenContract!
+        .approve(Contracts[chainId].dex, amountToApprove!)
+        .then((res) => {
+          setApprovalState(ApprovalState.PENDING);
+          const mined = res.wait();
+          toast.promise(
+            mined,
+            {
+              loading: `Approving ${
+                ticker && parseBytes32String(ticker)
+              } spending limit`,
+              success: "Successfully approved spending limit",
+              error: (err) =>
+                `Error when approving ${
+                  ticker && parseBytes32String(ticker)
+                } spending limit: ${err.toString()}`,
+            },
+            {
+              success: {
+                duration: 5000,
+              },
+            }
+          );
+          return mined;
+        }),
     {
-      onSuccess: () => {
-        console.log("success");
+      onSettled: () => {
+        setApprovalState(ApprovalState.UNKNOWN);
         queryClient.invalidateQueries("allowance");
-        setApprovalState(ApprovalState.APPROVED);
-        toast.success("Successfully approved spending limit");
-      },
-      onMutate: () => {
-        setApprovalState(ApprovalState.PENDING);
       },
     }
   );
@@ -290,6 +283,41 @@ export const useApprove = (
 
     return mutation.mutate();
   };
+
+  useEffect(() => {
+    console.log("allitom a statet");
+    if (approvalState === ApprovalState.PENDING) {
+      console.log("pending useffect");
+      return;
+    }
+
+    if (!amountToApprove) {
+      setApprovalState(ApprovalState.UNKNOWN);
+      return;
+    }
+
+    if (isNative) {
+      console.log("native!");
+
+      setApprovalState(ApprovalState.APPROVED);
+      return;
+    }
+    // we might not have enough data to know whether or not we need to approve
+    if (!currentAllowance) {
+      setApprovalState(ApprovalState.UNKNOWN);
+      return;
+    }
+
+    // amountToApprove will be defined if currentAllowance is
+    if (currentAllowance.lt(amountToApprove)) {
+      console.log("LTTTTTTTTTTTTTt");
+
+      setApprovalState(ApprovalState.NOT_APPROVED);
+      return;
+    }
+    console.log("gt");
+    setApprovalState(ApprovalState.APPROVED);
+  }, [amountToApprove, approvalState, currentAllowance, isNative]);
 
   return { approvalState, approve, mutation };
 };

@@ -1,4 +1,5 @@
-import { Flex, FlexProps, Heading } from "@chakra-ui/react";
+import { Button, Flex, FlexProps, Heading } from "@chakra-ui/react";
+import { useEthers } from "@usedapp/core";
 import { ReactNode } from "react";
 
 type ContainerProps = FlexProps & {
@@ -7,6 +8,8 @@ type ContainerProps = FlexProps & {
 };
 
 const Container = ({ heading, children, ...props }: ContainerProps) => {
+  const { account, activateBrowserWallet } = useEthers();
+
   return (
     <Flex
       justifySelf="start"
@@ -19,7 +22,18 @@ const Container = ({ heading, children, ...props }: ContainerProps) => {
       <Heading color="pink.300" mb={32} alignSelf="center">
         {heading}
       </Heading>
-      {children}
+      {account ? (
+        children
+      ) : (
+        <Button
+          variant="outline"
+          colorScheme="purple"
+          size="lg"
+          onClick={() => activateBrowserWallet()}
+        >
+          Connect Wallet
+        </Button>
+      )}
     </Flex>
   );
 };

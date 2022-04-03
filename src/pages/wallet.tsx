@@ -1,5 +1,6 @@
 import {
   Button,
+  chakra,
   Flex,
   FormControl,
   FormLabel,
@@ -143,8 +144,12 @@ const getDepositButtonText = (
 ) => {
   switch (approvalState) {
     case ApprovalState.PENDING:
-      return `Approving ${tickerString}`;
-
+      return (
+        <chakra.span>
+          Approving {tickerString}
+          <chakra.span>...</chakra.span>
+        </chakra.span>
+      );
     case ApprovalState.NOT_APPROVED:
       return `Approve ${tickerString}`;
 
@@ -165,19 +170,19 @@ const DepositModal = ({
   setAmount,
 }: ActionModalProps) => {
   const tokenAddress = useTokenAddress(ticker);
-  const {
-    approvalState,
-    approve,
-    mutation: { status },
-  } = useApprove(ticker, tokenAddress, BigNumber.from(amount || 0));
+  const { approvalState, approve, mutation } = useApprove(
+    ticker,
+    tokenAddress,
+    BigNumber.from(amount || 0)
+  );
 
   console.log({ approvalState });
-  console.log({ status });
 
   if (!ticker) {
     return null;
   }
-
+  // TODO: april 3: get to know how we can see if the trans is pending on the chain (addTransaction on sushiswap) &
+  // format it to ethers and not wei
   return (
     <Modal
       size="xs"
@@ -213,7 +218,9 @@ const DepositModal = ({
         <ModalFooter>
           <Flex direction="column">
             <Button
-              disabled={!tokenAddress}
+              disabled={
+                !tokenAddress || approvalState === ApprovalState.PENDING
+              }
               onClick={approve}
               colorScheme="purple"
               w="full"
