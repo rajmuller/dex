@@ -57,5 +57,7 @@ contract Wallet is Ownable {
     function withdrawEth(uint256 _amount) external {
         require(balances[msg.sender][bytes32("ETH")] >= _amount, "Not enough balance");
         balances[msg.sender][bytes32("ETH")] -= _amount;
+        address payable to = payable(msg.sender);
+        to.transfer(_amount);
     }
 }
