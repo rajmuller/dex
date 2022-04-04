@@ -1,6 +1,5 @@
 import {
   Button,
-  chakra,
   Flex,
   FormControl,
   FormLabel,
@@ -25,24 +24,26 @@ import {
   Tr,
   useDisclosure,
 } from "@chakra-ui/react";
-import { BigNumber } from "ethers";
 import {
   formatBytes32String,
   formatEther,
   parseBytes32String,
+  parseEther,
 } from "ethers/lib/utils";
 import {
   Dispatch,
   MutableRefObject,
   SetStateAction,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from "react";
 import { Container, Logo } from "../components";
 import {
   ApprovalState,
-  useApprove,
+  useApproval,
+  useDeposit,
   useDexBalance,
   useIsNative,
   useNativeBalance,
@@ -129,6 +130,61 @@ const TokenRow = ({ ticker, onOpen, setActiveTicker }: TokenRowProps) => {
   );
 };
 
+type DepositButtonProps = {
+  approvalState: ApprovalState;
+  ticker: string;
+  approve: () => void;
+  deposit: () => void;
+  depositStatus: "error" | "idle" | "loading" | "success";
+};
+
+const DepositButton = ({
+  approvalState,
+  approve,
+  deposit,
+  depositStatus,
+  ticker,
+}: DepositButtonProps) => {
+  const tickerString = parseBytes32String(ticker);
+
+  if (depositStatus === "loading") {
+    return (
+      <Button disabled colorScheme="purple" w="full">
+        Depositing {tickerString}...
+      </Button>
+    );
+  }
+
+  switch (approvalState) {
+    case ApprovalState.PENDING:
+      return (
+        <Button disabled colorScheme="purple" w="full">
+          Approving {tickerString}...
+        </Button>
+      );
+    case ApprovalState.NOT_APPROVED:
+      return (
+        <Button onClick={approve} colorScheme="purple" w="full">
+          Approve {tickerString}
+        </Button>
+      );
+
+    case ApprovalState.APPROVED:
+      return (
+        <Button onClick={deposit} colorScheme="purple" w="full">
+          Deposit
+        </Button>
+      );
+
+    default:
+      return (
+        <Button onClick={deposit} colorScheme="purple" w="full">
+          Deposit
+        </Button>
+      );
+  }
+};
+
 type ActionModalProps = {
   initialRef: MutableRefObject<null>;
   isOpen: boolean;
@@ -136,29 +192,6 @@ type ActionModalProps = {
   ticker?: string;
   amount: string;
   setAmount: Dispatch<SetStateAction<string>>;
-};
-
-const getDepositButtonText = (
-  approvalState: ApprovalState,
-  tickerString?: string
-) => {
-  switch (approvalState) {
-    case ApprovalState.PENDING:
-      return (
-        <chakra.span>
-          Approving {tickerString}
-          <chakra.span>...</chakra.span>
-        </chakra.span>
-      );
-    case ApprovalState.NOT_APPROVED:
-      return `Approve ${tickerString}`;
-
-    case ApprovalState.APPROVED:
-      return "Deposit";
-
-    default:
-      return "Deposit";
-  }
 };
 
 const DepositModal = ({
@@ -170,19 +203,26 @@ const DepositModal = ({
   setAmount,
 }: ActionModalProps) => {
   const tokenAddress = useTokenAddress(ticker);
-  const { approvalState, approve, mutation } = useApprove(
+  const { approvalState, approve } = useApproval(
     ticker,
     tokenAddress,
-    BigNumber.from(amount || 0)
+    parseEther(amount || "0")
+  );
+  const { deposit, status: depositStatus } = useDeposit(
+    ticker,
+    parseEther(amount || "0")
   );
 
-  console.log({ approvalState });
+  useEffect(() => {
+    if (depositStatus === "success") {
+      onClose();
+    }
+  }, [depositStatus, onClose]);
 
   if (!ticker) {
     return null;
   }
-  // TODO: april 3: get to know how we can see if the trans is pending on the chain (addTransaction on sushiswap) &
-  // format it to ethers and not wei
+
   return (
     <Modal
       size="xs"
@@ -203,7 +243,10 @@ const DepositModal = ({
               borderRadius="none"
               pl={0}
               ref={initialRef}
-              disabled={approvalState === ApprovalState.PENDING}
+              disabled={
+                approvalState === ApprovalState.PENDING ||
+                depositStatus === "loading"
+              }
               placeholder="0"
               onChange={(e) => setAmount(e.target.value)}
               value={amount}
@@ -217,16 +260,13 @@ const DepositModal = ({
 
         <ModalFooter>
           <Flex direction="column">
-            <Button
-              disabled={
-                !tokenAddress || approvalState === ApprovalState.PENDING
-              }
-              onClick={approve}
-              colorScheme="purple"
-              w="full"
-            >
-              {getDepositButtonText(approvalState, parseBytes32String(ticker))}
-            </Button>
+            <DepositButton
+              approvalState={approvalState}
+              approve={approve}
+              deposit={deposit}
+              depositStatus={depositStatus}
+              ticker={ticker}
+            />
             <Text mt={4} fontSize="xs">
               * Save MATIC in Wallet for gas & Do not deposit more than in
               Wallet
@@ -243,14 +283,14 @@ const Wallet = () => {
   const [activeTicker, setActiveTicker] = useState<string>();
   const [amount, setAmount] = useState("");
   const { isOpen, onOpen, onClose: closeModal } = useDisclosure();
+  const { data: tickerList, status } = useTickerList();
 
   const onClose = useCallback(() => {
     setActiveTicker(undefined);
-    setAmount("0");
+    setAmount("");
     closeModal();
   }, [closeModal]);
 
-  const { data: tickerList, status } = useTickerList();
 
   if (status === "loading" || !tickerList?.length) {
     return (

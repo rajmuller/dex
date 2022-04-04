@@ -216,7 +216,7 @@ export enum ApprovalState {
   PENDING = "PENDING",
 }
 
-export const useApprove = (
+export const useApproval = (
   ticker?: string,
   tokenAddress?: string,
   amountToApprove?: BigNumber
@@ -229,8 +229,7 @@ export const useApprove = (
   const tokenContract = useTokenContract(tokenAddress);
   const { data: currentAllowance } = useAllowance(tokenAddress);
 
-  // When this mutation succeeds, invalidate any queries with the `todos` or `reminders` query key
-  const mutation = useMutation(
+  const approveMutation = useMutation(
     () =>
       tokenContract!
         .approve(Contracts[chainId].dex, amountToApprove!)
@@ -243,9 +242,9 @@ export const useApprove = (
               loading: `Approving ${
                 ticker && parseBytes32String(ticker)
               } spending limit`,
-              success: "Successfully approved spending limit",
+              success: "Successfully approwal of spending limit",
               error: (err) =>
-                `Error when approving ${
+                `Error approving ${
                   ticker && parseBytes32String(ticker)
                 } spending limit: ${err.toString()}`,
             },
@@ -281,13 +280,11 @@ export const useApprove = (
       return;
     }
 
-    return mutation.mutate();
+    return approveMutation.mutate();
   };
 
   useEffect(() => {
-    console.log("allitom a statet");
     if (approvalState === ApprovalState.PENDING) {
-      console.log("pending useffect");
       return;
     }
 
@@ -297,8 +294,6 @@ export const useApprove = (
     }
 
     if (isNative) {
-      console.log("native!");
-
       setApprovalState(ApprovalState.APPROVED);
       return;
     }
@@ -310,31 +305,105 @@ export const useApprove = (
 
     // amountToApprove will be defined if currentAllowance is
     if (currentAllowance.lt(amountToApprove)) {
-      console.log("LTTTTTTTTTTTTTt");
-
       setApprovalState(ApprovalState.NOT_APPROVED);
       return;
     }
-    console.log("gt");
     setApprovalState(ApprovalState.APPROVED);
   }, [amountToApprove, approvalState, currentAllowance, isNative]);
 
-  return { approvalState, approve, mutation };
+  return { approvalState, approve };
 };
 
-// const useDeposit = (ticker: string, amount: BigNumber) => {
-//   const queryClient = useQueryClient();
+export const useDeposit = (ticker?: string, amountToDeposit?: BigNumber) => {
+  const isNative = useIsNative(ticker);
+  const queryClient = useQueryClient();
+  const dexContract = useDexContract();
 
-//   const dex = useDex({ readOnly: false });
+  const nativeDepositMutation = useMutation(
+    () =>
+      dexContract!.depositEth({ value: amountToDeposit }).then((res) => {
+        const mined = res.wait();
+        toast.promise(
+          mined,
+          {
+            loading: `Depositing MATIC...`,
+            success: "Successful deposit",
+            error: (err) =>
+              `Error depositing MATIC
+            }: ${err.toString()}`,
+          },
+          {
+            success: {
+              duration: 5000,
+            },
+          }
+        );
+        return mined;
+      }),
+    {
+      onSettled: () => {
+        queryClient.invalidateQueries("balance");
+      },
+    }
+  );
 
-//   // When this mutation succeeds, invalidate any queries with the `todos` or `reminders` query key
-//   const mutation = useMutation(() => dex., {
-//     onSuccess: () => {
-//       queryClient.invalidateQueries("todos");
-//       queryClient.invalidateQueries("reminders");
-//     },
-//   });
-// };
+  const tokenDepositMutation = useMutation(
+    () =>
+      dexContract!.deposit(amountToDeposit!, ticker!).then((res) => {
+        const mined = res.wait();
+        toast.promise(
+          mined,
+          {
+            loading: `Depositing ${ticker && parseBytes32String(ticker)}...`,
+            success: "Successful deposit",
+            error: (err) =>
+              `Error depositing ${
+                ticker && parseBytes32String(ticker)
+              }: ${err.toString()}`,
+          },
+          {
+            success: {
+              duration: 5000,
+            },
+          }
+        );
+        return mined;
+      }),
+    {
+      onSettled: () => {
+        queryClient.invalidateQueries("balance");
+      },
+    }
+  );
+
+  const deposit = () => {
+    if (!dexContract) {
+      console.error("dex contract is null");
+      return;
+    }
+
+    if (!ticker) {
+      console.error("token contract is null");
+      return;
+    }
+
+    if (amountToDeposit?.eq(0)) {
+      console.error("missing amount to deposit");
+      return;
+    }
+
+    return isNative
+      ? nativeDepositMutation.mutate()
+      : tokenDepositMutation.mutate();
+  };
+
+  return {
+    status: isNative
+      ? nativeDepositMutation.status
+      : tokenDepositMutation.status,
+    deposit,
+  };
+};
 
 enum Side {
   BUY,
