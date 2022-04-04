@@ -3,11 +3,9 @@ import { ChainId } from "@usedapp/core";
 export const Contracts = {
   [ChainId.Polygon]: {
     dex: "test",
-    linkk: "test",
   },
   [ChainId.Mumbai]: {
-    dex: "0x9214b562986F28959420c30AE94725bBF2E3Af69",
-    linkk: "0x6b37b3aA50D017913d1535aB87938E1A6a9759e3",
+    dex: "0x3D4589e0ca42F03Ced20846d5Be0489c588D29f4",
   },
 };
 
