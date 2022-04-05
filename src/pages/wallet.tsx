@@ -24,12 +24,14 @@ import {
   Tr,
   useDisclosure,
 } from "@chakra-ui/react";
+import { useTransactions } from "@usedapp/core";
 import {
   formatBytes32String,
   formatEther,
   parseBytes32String,
   parseEther,
 } from "ethers/lib/utils";
+import Link from "next/link";
 import {
   Dispatch,
   MutableRefObject,
@@ -50,25 +52,38 @@ import {
   useTickerList,
   useTokenAddress,
   useTokenBalance,
+  useWithdraw,
 } from "../lib/hooks";
 
 type ActionButtonsProps = {
   ticker: string;
   setActiveTicker: Dispatch<SetStateAction<string | undefined>>;
-  onOpen: () => void;
+  onDepositOpen: () => void;
+  onWithdrawOpen: () => void;
 };
 
 const ActionButtons = ({
   ticker,
-  onOpen,
+  onDepositOpen,
+  onWithdrawOpen,
   setActiveTicker,
 }: ActionButtonsProps) => {
+  const isNative = useIsNative(ticker);
+
   const handleDeposit = useCallback(
     (ticker: string) => {
       setActiveTicker(ticker);
-      onOpen();
+      onDepositOpen();
     },
-    [onOpen, setActiveTicker]
+    [onDepositOpen, setActiveTicker]
+  );
+
+  const handleWithdraw = useCallback(
+    (ticker: string) => {
+      setActiveTicker(ticker);
+      onWithdrawOpen();
+    },
+    [onWithdrawOpen, setActiveTicker]
   );
 
   return (
@@ -80,53 +95,105 @@ const ActionButtons = ({
       >
         Deposit
       </Button>
-      <Button colorScheme="red" size="sm">
+      <Button
+        onClick={() => handleWithdraw(ticker)}
+        colorScheme="red"
+        size="sm"
+      >
         Withdraw
       </Button>
-      <Button colorScheme="blue" size="sm">
-        Trade
-      </Button>
+      {!isNative && (
+        <Button colorScheme="blue" size="sm">
+          <Link href={`/trade/${parseBytes32String(ticker)}`}>
+            <a>Trade</a>
+          </Link>
+        </Button>
+      )}
     </Flex>
   );
 };
 
-type TokenRowProps = ActionButtonsProps & {
-  ticker: string;
+type ActionModalProps = {
+  initialRef: MutableRefObject<null>;
+  isOpen: boolean;
+  onClose: () => void;
+  ticker?: string;
+  amount: string;
+  setAmount: Dispatch<SetStateAction<string>>;
 };
 
-const TokenRow = ({ ticker, onOpen, setActiveTicker }: TokenRowProps) => {
-  const tickerString = parseBytes32String(ticker);
-  const tokenAddress = useTokenAddress(ticker);
-  const isNative = useIsNative(ticker);
+const WithdrawModal = ({
+  initialRef,
+  isOpen,
+  onClose,
+  ticker,
+  amount,
+  setAmount,
+}: ActionModalProps) => {
+  const { withdraw, status } = useWithdraw(ticker, parseEther(amount || "0"));
 
-  const { data: nativeBalance } = useNativeBalance();
-  const { data: tokenBalance } = useTokenBalance(tokenAddress);
-  const { data: dexBalance } = useDexBalance(ticker);
+  useEffect(() => {
+    if (status === "success") {
+      onClose();
+    }
+  }, [onClose, status]);
 
-  const balance = isNative ? nativeBalance : tokenBalance;
+  if (!ticker) {
+    return null;
+  }
 
   return (
-    <Tr>
-      <Td>
-        <Flex align="center" gap={2}>
-          <Logo ticker={tickerString} />
-          <Text>{tickerString}</Text>
-        </Flex>
-      </Td>
-      <Td isNumeric>
-        {balance ? formatEther(balance) : <Spinner size="sm" />}
-      </Td>
-      <Td isNumeric>
-        {dexBalance ? formatEther(dexBalance) : <Spinner size="sm" />}
-      </Td>
-      <Td>
-        <ActionButtons
-          onOpen={onOpen}
-          setActiveTicker={setActiveTicker}
-          ticker={ticker}
-        />
-      </Td>
-    </Tr>
+    <Modal
+      size="xs"
+      initialFocusRef={initialRef}
+      isOpen={isOpen}
+      onClose={onClose}
+    >
+      <ModalOverlay />
+      <ModalContent backgroundColor="gray.800">
+        <ModalHeader>Withdraw {parseBytes32String(ticker)}</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody pb={6}>
+          <FormControl>
+            <FormLabel>Amount</FormLabel>
+            <Input
+              min={0}
+              borderWidth={0}
+              borderBottomWidth={1}
+              borderRadius="none"
+              pl={0}
+              ref={initialRef}
+              disabled={status === "loading"}
+              placeholder="0"
+              onChange={(e) => setAmount(e.target.value)}
+              value={amount}
+              type="number"
+              _focus={{
+                outline: "none",
+              }}
+            />
+          </FormControl>
+        </ModalBody>
+
+        <ModalFooter>
+          <Flex w="full" direction="column">
+            <Button
+              onClick={withdraw}
+              disabled={status === "loading"}
+              colorScheme="purple"
+              w="full"
+            >
+              {status === "loading"
+                ? `Withdrawing ${parseBytes32String(ticker)}...`
+                : "Withdraw"}
+            </Button>
+            <Text mt={4} fontSize="xs">
+              * Withdraw to your Wallet
+            </Text>
+          </Flex>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 };
 
@@ -185,15 +252,6 @@ const DepositButton = ({
   }
 };
 
-type ActionModalProps = {
-  initialRef: MutableRefObject<null>;
-  isOpen: boolean;
-  onClose: () => void;
-  ticker?: string;
-  amount: string;
-  setAmount: Dispatch<SetStateAction<string>>;
-};
-
 const DepositModal = ({
   initialRef,
   isOpen,
@@ -238,6 +296,7 @@ const DepositModal = ({
           <FormControl>
             <FormLabel>Amount</FormLabel>
             <Input
+              min={0}
               borderWidth={0}
               borderBottomWidth={1}
               borderRadius="none"
@@ -259,7 +318,7 @@ const DepositModal = ({
         </ModalBody>
 
         <ModalFooter>
-          <Flex direction="column">
+          <Flex w="full" direction="column">
             <DepositButton
               approvalState={approvalState}
               approve={approve}
@@ -278,19 +337,76 @@ const DepositModal = ({
   );
 };
 
+type TokenRowProps = ActionButtonsProps & {
+  ticker: string;
+};
+
+const TokenRow = ({
+  ticker,
+  onDepositOpen,
+  onWithdrawOpen,
+  setActiveTicker,
+}: TokenRowProps) => {
+  const tickerString = parseBytes32String(ticker);
+  const tokenAddress = useTokenAddress(ticker);
+  const isNative = useIsNative(ticker);
+
+  const { data: nativeBalance } = useNativeBalance();
+  const { data: tokenBalance } = useTokenBalance(tokenAddress);
+  const { data: dexBalance } = useDexBalance(ticker);
+
+  const balance = isNative ? nativeBalance : tokenBalance;
+
+  return (
+    <Tr>
+      <Td>
+        <Flex align="center" gap={2}>
+          <Logo ticker={tickerString} />
+          <Text>{tickerString}</Text>
+        </Flex>
+      </Td>
+      <Td isNumeric>
+        {balance ? formatEther(balance) : <Spinner size="sm" />}
+      </Td>
+      <Td isNumeric>
+        {dexBalance ? formatEther(dexBalance) : <Spinner size="sm" />}
+      </Td>
+      <Td>
+        <ActionButtons
+          onDepositOpen={onDepositOpen}
+          onWithdrawOpen={onWithdrawOpen}
+          setActiveTicker={setActiveTicker}
+          ticker={ticker}
+        />
+      </Td>
+    </Tr>
+  );
+};
+
 const Wallet = () => {
   const initialRef = useRef(null);
   const [activeTicker, setActiveTicker] = useState<string>();
   const [amount, setAmount] = useState("");
-  const { isOpen, onOpen, onClose: closeModal } = useDisclosure();
+  const {
+    isOpen: isDepositOpen,
+    onOpen: onDepositOpen,
+    onClose: closeDepositModal,
+  } = useDisclosure();
+  const {
+    isOpen: isWithdrawOpen,
+    onOpen: onWithdrawOpen,
+    onClose: closeWithdrawModal,
+  } = useDisclosure();
   const { data: tickerList, status } = useTickerList();
+  const { transactions } = useTransactions();
+  console.log({ transactions });
 
   const onClose = useCallback(() => {
     setActiveTicker(undefined);
     setAmount("");
-    closeModal();
-  }, [closeModal]);
-
+    closeDepositModal();
+    closeWithdrawModal();
+  }, [closeDepositModal, closeWithdrawModal]);
 
   if (status === "loading" || !tickerList?.length) {
     return (
@@ -324,7 +440,8 @@ const Wallet = () => {
               <TokenRow
                 key={ticker}
                 ticker={ticker}
-                onOpen={onOpen}
+                onDepositOpen={onDepositOpen}
+                onWithdrawOpen={onWithdrawOpen}
                 setActiveTicker={setActiveTicker}
               />
             ))}
@@ -332,7 +449,15 @@ const Wallet = () => {
         </Table>
       </TableContainer>
       <DepositModal
-        isOpen={isOpen}
+        isOpen={isDepositOpen}
+        ticker={activeTicker}
+        onClose={onClose}
+        initialRef={initialRef}
+        amount={amount}
+        setAmount={setAmount}
+      />
+      <WithdrawModal
+        isOpen={isWithdrawOpen}
         ticker={activeTicker}
         onClose={onClose}
         initialRef={initialRef}

@@ -139,6 +139,32 @@ export const useIsNative = (ticker?: string) => {
   return parseBytes32String(ticker) === NATIVE_CURRENCY[chainId];
 };
 
+export const useAddToken = (ticker?: string, tokenAddress?: string) => {
+  const dexContract = useDexContract();
+
+  const mutation = useMutation(() =>
+    dexContract!.addToken(ticker!, tokenAddress!).then((res) => {
+      const mine = res.wait();
+      toast.promise(
+        mine,
+        {
+          loading: `adding ${ticker && parseBytes32String(ticker)}`,
+          success: "Successfully added",
+          error: (err) => `Error adding: ${ticker}: ${err.toString()}`,
+        },
+        {
+          success: {
+            duration: 5000,
+          },
+        }
+      );
+      return mine;
+    })
+  );
+
+  return mutation;
+};
+
 export const useNativeBalance = () => {
   const { account, library } = useEthers();
 
@@ -321,25 +347,30 @@ export const useDeposit = (ticker?: string, amountToDeposit?: BigNumber) => {
 
   const nativeDepositMutation = useMutation(
     () =>
-      dexContract!.depositEth({ value: amountToDeposit }).then((res) => {
-        const mined = res.wait();
-        toast.promise(
-          mined,
-          {
-            loading: `Depositing MATIC...`,
-            success: "Successful deposit",
-            error: (err) =>
-              `Error depositing MATIC
+      dexContract!
+        .depositEth({ value: amountToDeposit })
+        .then((res) => {
+          const mined = res.wait();
+          toast.promise(
+            mined,
+            {
+              loading: `Depositing MATIC...`,
+              success: "Successful deposit",
+              error: (err) =>
+                `Error depositing MATIC
             }: ${err.toString()}`,
-          },
-          {
-            success: {
-              duration: 5000,
             },
-          }
-        );
-        return mined;
-      }),
+            {
+              success: {
+                duration: 5000,
+              },
+            }
+          );
+          return mined;
+        })
+        .catch((err) => {
+          toast.error(`Error depositing: ${err.data.message}`);
+        }),
     {
       onSettled: () => {
         queryClient.invalidateQueries("balance");
@@ -349,26 +380,31 @@ export const useDeposit = (ticker?: string, amountToDeposit?: BigNumber) => {
 
   const tokenDepositMutation = useMutation(
     () =>
-      dexContract!.deposit(amountToDeposit!, ticker!).then((res) => {
-        const mined = res.wait();
-        toast.promise(
-          mined,
-          {
-            loading: `Depositing ${ticker && parseBytes32String(ticker)}...`,
-            success: "Successful deposit",
-            error: (err) =>
-              `Error depositing ${
-                ticker && parseBytes32String(ticker)
-              }: ${err.toString()}`,
-          },
-          {
-            success: {
-              duration: 5000,
+      dexContract!
+        .deposit(amountToDeposit!, ticker!)
+        .then((res) => {
+          const mined = res.wait();
+          toast.promise(
+            mined,
+            {
+              loading: `Depositing ${ticker && parseBytes32String(ticker)}...`,
+              success: "Successful deposit",
+              error: (err) =>
+                `Error depositing ${
+                  ticker && parseBytes32String(ticker)
+                }: ${err.toString()}`,
             },
-          }
-        );
-        return mined;
-      }),
+            {
+              success: {
+                duration: 5000,
+              },
+            }
+          );
+          return mined;
+        })
+        .catch((err) => {
+          toast.error(`Error depositing: ${err.data.message}`);
+        }),
     {
       onSettled: () => {
         queryClient.invalidateQueries("balance");
@@ -402,6 +438,99 @@ export const useDeposit = (ticker?: string, amountToDeposit?: BigNumber) => {
       ? nativeDepositMutation.status
       : tokenDepositMutation.status,
     deposit,
+  };
+};
+
+export const useWithdraw = (ticker?: string, amountToWithdraw?: BigNumber) => {
+  const isNative = useIsNative(ticker);
+  const queryClient = useQueryClient();
+  const dexContract = useDexContract();
+
+  const nativeWithdrawMutation = useMutation(
+    () =>
+      dexContract!
+        .withdrawEth(amountToWithdraw!)
+        .then((res) => {
+          const mined = res.wait();
+          toast.promise(mined, {
+            loading: `Withdrawing MATIC...`,
+            success: "Successful withdrawal",
+            error: (err) =>
+              `Error withdrawing MATIC
+            }: ${err.toString()}`,
+          });
+          return mined;
+        })
+        .catch((err) => {
+          toast.error(`Error withdrawing: ${err.data.message}`);
+        }),
+    {
+      onSettled: () => {
+        queryClient.invalidateQueries("balance");
+      },
+    }
+  );
+
+  const tokenWithdrawMutation = useMutation(
+    () =>
+      dexContract!
+        .withdraw(amountToWithdraw!, ticker!)
+        .then((res) => {
+          const mined = res.wait();
+          toast.promise(
+            mined,
+            {
+              loading: `Withdrawing ${ticker && parseBytes32String(ticker)}...`,
+              success: "Successful withdrawal",
+              error: (err) =>
+                `Error withdrawing ${
+                  ticker && parseBytes32String(ticker)
+                }: ${err.toString()}`,
+            },
+            {
+              success: {
+                duration: 5000,
+              },
+            }
+          );
+          return mined;
+        })
+        .catch((err) => {
+          toast.error(`Error withdrawing: ${err.data.message}`);
+        }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries("balance");
+      },
+    }
+  );
+
+  const withdraw = () => {
+    if (!dexContract) {
+      console.error("dex contract is null");
+      return;
+    }
+
+    if (!ticker) {
+      console.error("token contract is null");
+      return;
+    }
+
+    if (amountToWithdraw?.eq(0)) {
+      console.error("missing amount to withdraw");
+      return;
+    }
+
+    return isNative
+      ? nativeWithdrawMutation.mutate()
+      : tokenWithdrawMutation.mutate();
+  };
+
+  return {
+    status: isNative
+      ? nativeWithdrawMutation.status
+      : tokenWithdrawMutation.status,
+    withdraw,
   };
 };
 
