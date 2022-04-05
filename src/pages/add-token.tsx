@@ -1,49 +1,42 @@
 import { Button, Flex, FormControl, FormLabel, Input } from "@chakra-ui/react";
+import { useEthers } from "@usedapp/core";
 import { ethers } from "ethers";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { ContractOwners } from "../config";
+import { useAddToken, useChainId } from "../lib/hooks";
 
-import Dex from "../../contract/artifacts/contracts/Dex.sol/Dex.json";
+const useEligibility = async () => {
+  const { account } = useEthers();
+  const chainId = useChainId();
 
-import { dexAddress, dexOwner } from "../config";
+  if (!account || !chainId) {
+    return false;
+  }
+
+  return account.toLowerCase() === ContractOwners[chainId].toLowerCase();
+};
 
 const AddToken = () => {
-  const [show, setShow] = useState(false);
   const [form, setForm] = useState({
     ticker: "",
     address: "",
   });
+  const ticker = form.ticker && ethers.utils.formatBytes32String(form.ticker);
+  const tokenAddress = form.address && ethers.utils.getAddress(form.address);
 
-  const checkEligibility = async () => {
-    const web3Modal = new Web3Modal();
-    const connection = await web3Modal.connect();
-    const provider = new ethers.providers.Web3Provider(connection);
-    const signer = provider.getSigner();
-    const address = await signer.getAddress();
+  const show = useEligibility();
+  const addToken = useAddToken(ticker, tokenAddress);
 
-    const eligibleAccess = address.toLowerCase() === dexOwner.toLowerCase();
+  const onSubmit = useCallback(
+    (e: any) => {
+      e.preventDefault();
 
-    setShow(eligibleAccess);
-  };
+      addToken.mutate();
 
-  useEffect(() => {
-    checkEligibility();
-  }, []);
-
-  const onSubmit = async (e: any) => {
-    e.preventDefault();
-    const web3Modal = new Web3Modal();
-    const connection = await web3Modal.connect();
-    const provider = new ethers.providers.Web3Provider(connection);
-    const signer = provider.getSigner();
-    const dex = new ethers.Contract(dexAddress, Dex.abi, signer);
-
-    const ticker = ethers.utils.formatBytes32String(form.ticker);
-    const address = ethers.utils.getAddress(form.address);
-
-    await dex.addToken(ticker, address);
-
-    setForm({ ticker: "", address: "" });
-  };
+      setForm({ ticker: "", address: "" });
+    },
+    [addToken]
+  );
 
   if (!show) {
     return <div>Not Eligible</div>;
