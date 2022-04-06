@@ -105,9 +105,6 @@ contract Dex is Wallet {
             totalFilled += filled;
             orders[index].filled += filled;
             uint256 cost = (filled * orders[index].price) / 1 ether;
-            // console.log("price:", orders[index].price);
-            // console.log("cost:", cost);
-            // console.log("filled:", filled);
 
             if (_side == Side.BUY) {
                 //msg.sender is the buyer
