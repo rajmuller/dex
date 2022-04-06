@@ -5,7 +5,7 @@ export const Contracts = {
     dex: "test",
   },
   [ChainId.Mumbai]: {
-    dex: "0x3D4589e0ca42F03Ced20846d5Be0489c588D29f4",
+    dex: "0x0ce803d574fEd126389Fa38d622d0DA3E3e830D6",
   },
 };
 

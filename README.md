@@ -29,7 +29,10 @@ Deploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&ut
 ## Further improvements
 
 1. Refactor
-2. Abstract further away Contract calls and their states
-3. Logging and Transaction tracking
-4. Design overhaul
-5. Work out useDapp quirks, I found it buggy but it's awesome besides its issues
+2. Separate balances that are tied to a limit order
+3. Limit orders activate buys/sells not just orderbook addition
+4. Implement various decimals
+5. Abstract further away Contract calls and their states
+6. Logging and Transaction tracking
+7. Design overhaul
+8. Work out useDapp quirks, I found it buggy but it's awesome besides its issues

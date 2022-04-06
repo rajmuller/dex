@@ -58,9 +58,10 @@ contract Dex is Wallet {
         uint256 _price
     ) public {
         if (_side == Side.BUY) {
-            require(balances[msg.sender]["ETH"] >= _amount * _price, "Not enough balance");
+            // 1M >= 1M *
+            require(balances[msg.sender]["ETH"] >= (_amount * _price) / 1 ether, "Insufficient balance");
         } else if (_side == Side.SELL) {
-            require(balances[msg.sender][_ticker] >= _amount, "Not enough tokens");
+            require(balances[msg.sender][_ticker] >= _amount, "Insufficient tokens");
         }
 
         Order[] storage orders = orderbook[_ticker][uint8(_side)];
@@ -82,7 +83,7 @@ contract Dex is Wallet {
         uint256 _amount
     ) public {
         if (_side == Side.SELL) {
-            require(balances[msg.sender][_ticker] >= _amount, "Insufficient balance");
+            require(balances[msg.sender][_ticker] >= _amount, "Insufficient tokens");
         }
 
         uint8 oppositeSide = uint8(_side) == 0 ? 1 : 0;
@@ -103,7 +104,10 @@ contract Dex is Wallet {
 
             totalFilled += filled;
             orders[index].filled += filled;
-            uint256 cost = filled * orders[index].price;
+            uint256 cost = (filled * orders[index].price) / 1 ether;
+            // console.log("price:", orders[index].price);
+            // console.log("cost:", cost);
+            // console.log("filled:", filled);
 
             if (_side == Side.BUY) {
                 //msg.sender is the buyer
