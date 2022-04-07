@@ -299,13 +299,12 @@ const TradeWindow = ({ ticker, side, setSide }: TradeWindowProps) => {
         }
         m={4}
         onClick={onClick}
-        mb={8}
         colorScheme={side === Side.BUY ? "green" : "red"}
       >
         {orderType === "limit" && "Place "}
         {side === Side.BUY ? "Buy" : "Sell"}
       </Button>
-      <chakra.span color="gray.400" textAlign="center">
+      <chakra.span my={4} color="gray.400" textAlign="center">
         <Text>limit orders to add to OB</Text>
         <Text>market orders to execute trade</Text>
       </chakra.span>
