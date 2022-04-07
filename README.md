@@ -34,5 +34,6 @@ Deploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&ut
 4. Implement various decimals nut just standard 18
 5. Abstract further away Contract calls and their states
 6. Logging and Transaction tracking
-7. Design overhaul
-8. Work out useDapp quirks, I found it buggy but it's awesome besides its issues
+7. True multichain support
+8. Design overhaul
+9. Work out useDapp quirks, I found it buggy but it's awesome besides its issues
