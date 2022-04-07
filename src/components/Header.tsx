@@ -115,7 +115,7 @@ const Header = () => {
           )}
         </Flex>
       </Flex>
-      <Flex w="100%" h={0.25} bg="rgba(255,255,255,0.1)" />
+      <Flex w="100%" h={0.25} bg="purple.500" opacity={0.5} />
       <Overlay />
     </>
   );

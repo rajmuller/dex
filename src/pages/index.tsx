@@ -1,5 +1,6 @@
 import {
   Button,
+  chakra,
   Flex,
   FormControl,
   FormLabel,
@@ -86,7 +87,16 @@ const ActionButtons = ({
   );
 
   return (
-    <Flex gap={4}>
+    <Flex gap={4} justify="flex-end">
+      {!isNative && (
+        <Link href={`/trade/${parseBytes32String(ticker)}`}>
+          <a>
+            <Button colorScheme="blue" size="sm">
+              Trade
+            </Button>
+          </a>
+        </Link>
+      )}
       <Button
         onClick={() => handleDeposit(ticker)}
         colorScheme="green"
@@ -101,13 +111,6 @@ const ActionButtons = ({
       >
         Withdraw
       </Button>
-      {!isNative && (
-        <Button colorScheme="blue" size="sm">
-          <Link href={`/trade/${parseBytes32String(ticker)}`}>
-            <a>Trade</a>
-          </Link>
-        </Button>
-      )}
     </Flex>
   );
 };
@@ -365,10 +368,14 @@ const TokenRow = ({
         </Flex>
       </Td>
       <Td isNumeric>
-        {balance ? formatEther(balance) : <Spinner size="sm" />}
+        {balance ? formatEther(balance).slice(0, 6) : <Spinner size="sm" />}
       </Td>
       <Td isNumeric>
-        {dexBalance ? formatEther(dexBalance) : <Spinner size="sm" />}
+        {dexBalance ? (
+          formatEther(dexBalance).slice(0, 6)
+        ) : (
+          <Spinner size="sm" />
+        )}
       </Td>
       <Td>
         <ActionButtons
@@ -417,18 +424,40 @@ const Home = () => {
   const tickerListWithNative = [formatBytes32String("MATIC"), ...tickerList];
 
   return (
-    <Container heading="Deposit & Withdraw">
+    <Container heading="Carrot Swap">
       <TableContainer>
         <Table variant="simple">
           <TableCaption>
-            * Deposit from Wallet to Trade Account to be able to buy and sell
-            tokens
+            <Text mb={4}>
+              * Deposit from Wallet to Trade Account to be able to buy and sell
+              tokens
+            </Text>
+            <Flex gap={12} justify="center">
+              <a
+                target="_blank"
+                href="https://faucet.polygon.technology/"
+                rel="noreferrer"
+              >
+                <chakra.span color="blue.500" textDecoration="underline">
+                  MATIC faucet
+                </chakra.span>
+              </a>
+              <a
+                target="_blank"
+                href="https://faucets.chain.link/mumbai"
+                rel="noreferrer"
+              >
+                <chakra.span color="blue.500" textDecoration="underline">
+                  LINK faucet
+                </chakra.span>
+              </a>
+            </Flex>
           </TableCaption>
           <Thead>
             <Tr>
               <Th>Token</Th>
-              <Th>Wallet</Th>
-              <Th>Trade Account</Th>
+              <Th isNumeric>Wallet</Th>
+              <Th isNumeric>Trade Account</Th>
               <Th isNumeric>Action</Th>
             </Tr>
           </Thead>

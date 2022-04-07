@@ -7,7 +7,7 @@ import { Side } from "../../lib/hooks";
 
 const Trade = () => {
   const router = useRouter();
-  const [side, setSide] = useState(Side.SELL);
+  const [side, setSide] = useState(Side.BUY);
 
   const tickerString = router.query.token as string | undefined;
   const ticker = tickerString && formatBytes32String(tickerString);
