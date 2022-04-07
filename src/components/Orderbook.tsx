@@ -54,14 +54,8 @@ const Order = ({ order, side }: OrderProps) => {
 
 const Orderbook = ({ ticker, side }: OrderbookProps) => {
   const oppositeSide = side === Side.BUY ? Side.SELL : Side.BUY;
-  console.log({ oppositeSide });
 
   const { data, status } = useOrderbook(ticker, oppositeSide);
-
-  // console.log({ orders });
-  console.log({ data });
-
-  // console.log("sells: ", sells);
 
   if (status === "loading") {
     return (

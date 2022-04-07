@@ -258,7 +258,6 @@ const fetchOrderbook = async (dexContract: Dex, ticker: string, side: Side) => {
 
 export const useOrderbook = (ticker?: string, side?: Side) => {
   const dexContract = useDexContract(false);
-  console.log({ side });
 
   const { status, data } = useQuery(
     ["orderbook", ticker, side],
