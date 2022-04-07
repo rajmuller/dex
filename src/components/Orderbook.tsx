@@ -97,7 +97,7 @@ const Orderbook = ({ ticker, side }: OrderbookProps) => {
   return (
     <Flex direction="column">
       <Text width="full" mb={4} textAlign="center" fontWeight="semibold">
-        {side === Side.BUY ? "Sell Orders" : "Buy Orders"}
+        {side === Side.BUY ? "Orderbook - Sells" : "Orderbook - Buys"}
       </Text>
       <TableContainer>
         <Table variant="simple">

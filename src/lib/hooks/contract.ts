@@ -11,9 +11,9 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useMutation, useQuery, useQueryClient } from "react-query";
-import DexJson from "../../contract/artifacts/contracts/Dex.sol/Dex.json";
-import { Dex, ERC20 } from "../../contract/typechain";
-import { Contracts, NATIVE_CURRENCY } from "../config";
+import DexJson from "../../../contract/artifacts/contracts/Dex.sol/Dex.json";
+import { Dex, ERC20 } from "../../../contract/typechain";
+import { Contracts, NATIVE_CURRENCY } from "../../config";
 
 export enum ApprovalState {
   // bug

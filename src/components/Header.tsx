@@ -5,6 +5,7 @@ import {
   Modal,
   ModalBody,
   ModalContent,
+  ModalFooter,
   ModalHeader,
   ModalOverlay,
   Text,
@@ -14,10 +15,12 @@ import { ChainId, useEthers } from "@usedapp/core";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useNetworkHelper } from "../lib/hooks";
 
 const Overlay = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { chainId } = useEthers();
+  const changeOrAddNetwork = useNetworkHelper();
 
   useEffect(() => {
     if (chainId && chainId !== ChainId.Mumbai) {
@@ -48,9 +51,14 @@ const Overlay = () => {
             target="_blank"
             rel="noreferrer"
           >
-            Please switch to Mumbai-Testnet!
+            Mumbai-Testnet Docs!
           </chakra.a>
         </ModalBody>
+        <ModalFooter>
+          <Button onClick={changeOrAddNetwork} colorScheme="purple">
+            Change Network
+          </Button>
+        </ModalFooter>
       </ModalContent>
     </Modal>
   );
