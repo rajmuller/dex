@@ -1,50 +1,58 @@
+import { ChevronDownIcon } from "@chakra-ui/icons";
 import {
-  Flex,
-  Text,
-  Button,
-  Input,
-  FormLabel,
   Box,
+  Button,
+  chakra,
+  Flex,
+  FormLabel,
+  Input,
   Menu,
   MenuButton,
-  MenuDivider,
-  MenuGroup,
   MenuItem,
   MenuList,
+  Text,
 } from "@chakra-ui/react";
-import { ChevronDownIcon } from "@chakra-ui/icons";
-import { useEtherBalance, useEthers } from "@usedapp/core";
-import { formatEther } from "ethers/lib/utils";
-import { useState, Dispatch, SetStateAction, useCallback } from "react";
-
-import { useDexBalance, useTokenBalance } from "../lib/hooks";
 import { BigNumber } from "ethers";
+import {
+  formatBytes32String,
+  formatEther,
+  parseBytes32String,
+  parseEther,
+} from "ethers/lib/utils";
+import { Dispatch, SetStateAction, useCallback, useState } from "react";
+import {
+  Side,
+  useDexBalance,
+  useLimitOrder,
+  useMarketOrder,
+} from "../lib/hooks";
 
 type TradeWindowProps = {
   ticker?: string;
-  address?: string;
+  side: Side;
+  setSide: Dispatch<SetStateAction<Side>>;
 };
 
 type TradeMethodProps = {
-  buySelected: boolean;
-  setBuySelected: Dispatch<SetStateAction<boolean>>;
+  side: Side;
+  setSide: Dispatch<SetStateAction<Side>>;
 };
 
-const TradeMethod = ({ buySelected, setBuySelected }: TradeMethodProps) => {
+const TradeMethod = ({ side, setSide }: TradeMethodProps) => {
   return (
     <Flex>
       <Button
-        onClick={() => setBuySelected(true)}
+        onClick={() => setSide(Side.BUY)}
         fontSize="md"
         fontWeight="semibold"
-        color={buySelected ? "green.500" : "gray.300"}
+        color={side === Side.BUY ? "green.500" : "gray.300"}
         w="full"
         h={12}
         borderRadius="none"
-        borderColor={buySelected ? "green.500" : "transparent"}
+        borderColor={side === Side.BUY ? "green.500" : "transparent"}
         borderBottomWidth={2}
         _hover={{
-          color: buySelected ? "green.500" : "gray.100",
+          color: side === Side.BUY ? "green.500" : "gray.100",
         }}
         _active={{
           backgroundColor: "gray.900",
@@ -58,17 +66,17 @@ const TradeMethod = ({ buySelected, setBuySelected }: TradeMethodProps) => {
         Buy
       </Button>
       <Button
-        onClick={() => setBuySelected(false)}
+        onClick={() => setSide(Side.SELL)}
         fontSize="md"
         fontWeight="semibold"
-        color={buySelected ? "gray.300" : "red.500"}
+        color={side === Side.BUY ? "gray.300" : "red.500"}
         w="full"
         h={12}
         borderRadius="none"
-        borderColor={!buySelected ? "red.500" : "transparent"}
+        borderColor={side === Side.SELL ? "red.500" : "transparent"}
         borderBottomWidth={2}
         _hover={{
-          color: !buySelected ? "red.500" : "gray.100",
+          color: side === Side.SELL ? "red.500" : "gray.100",
         }}
         _active={{
           backgroundColor: "gray.900",
@@ -86,39 +94,31 @@ const TradeMethod = ({ buySelected, setBuySelected }: TradeMethodProps) => {
 };
 
 type BalanceProps = {
-  balance?: BigNumber;
+  nativeBalance?: BigNumber;
   ticker?: string;
-  value: BigNumber;
+  tokenBalance?: BigNumber;
 };
 
-const Balances = ({ balance, ticker, value }: BalanceProps) => {
+const Balances = ({ nativeBalance, ticker, tokenBalance }: BalanceProps) => {
   return (
     <>
-      <Text mt={4} w="full" textAlign="center">
+      <Text mt={4} color="gray.400" w="full" textAlign="center">
         Wallet Balances
       </Text>
-      <Flex p={4} pt={2} align="center" justify="space-between">
+      <Flex
+        color="gray.400"
+        p={4}
+        pt={2}
+        align="center"
+        justify="space-between"
+      >
         <Flex align="center" gap={4}>
           <Text>MATIC: </Text>
-          {!balance ? 0 : formatEther(balance).slice(0, 4)}
+          {nativeBalance && formatEther(nativeBalance)}
         </Flex>
         <Flex align="center" gap={4}>
-          <Text>{ticker}:</Text>
-          {formatEther(value)}
-        </Flex>
-      </Flex>
-
-      <Text mt={4} w="full" textAlign="center">
-        Tradeable Balances
-      </Text>
-      <Flex p={4} pt={2} align="center" justify="space-between" mb={8}>
-        <Flex align="center" gap={4}>
-          <Text>MATIC: </Text>
-          {!balance ? 0 : formatEther(balance).slice(0, 4)}
-        </Flex>
-        <Flex align="center" gap={4}>
-          <Text>{ticker}:</Text>
-          {formatEther(value)}
+          <Text>{ticker && parseBytes32String(ticker)}: </Text>
+          {tokenBalance && formatEther(tokenBalance)}
         </Flex>
       </Flex>
     </>
@@ -140,31 +140,47 @@ const getOrderTypeText = (type: OrderType) => {
   }
 };
 
-const TradeWindow = ({ ticker, address }: TradeWindowProps) => {
-  const [isBuy, setIsBuy] = useState(true);
-  const [price, setPrice] = useState<number | undefined>();
-  const [amount, setAmount] = useState(0);
+const TradeWindow = ({ ticker, side, setSide }: TradeWindowProps) => {
+  const [price, setPrice] = useState("");
+  const [amount, setAmount] = useState("");
   const [orderType, setOrderType] = useState<"limit" | "market">("limit");
-  const { account } = useEthers();
 
-  const userBalance = useEtherBalance(account);
-  const { value: userTokenBalance } = useTokenBalance(address);
-  const { value: dexBalance } = useDexBalance(ticker);
+  const { data: nativBalance } = useDexBalance(formatBytes32String("MATIC"));
+  const { data: tokenBalance } = useDexBalance(ticker);
 
-  console.log(dexBalance.toNumber());
+  const { createLimitOrder, status: limitOrderStatus } = useLimitOrder(
+    ticker,
+    parseEther(amount || "0"),
+    parseEther(price || "0"),
+    side
+  );
+  const { createMarketOrder, status: marketOrderStatus } = useMarketOrder(
+    ticker,
+    parseEther(amount || "0"),
+    side
+  );
 
   const handleMarketOrderTypeChange = useCallback(() => {
-    setPrice(undefined);
+    setPrice("");
     setOrderType("market");
   }, []);
 
+  const onClick = useCallback(() => {
+    if (orderType === "limit") {
+      createLimitOrder();
+      return;
+    }
+
+    createMarketOrder();
+  }, [createLimitOrder, createMarketOrder, orderType]);
+
   return (
-    <Flex flex={2} borderRadius="lg" bg="gray.800" direction="column">
-      <TradeMethod buySelected={isBuy} setBuySelected={setIsBuy} />
+    <Flex borderRadius="lg" bg="gray.800" direction="column">
+      <TradeMethod side={side} setSide={setSide} />
       <Balances
-        balance={userBalance}
+        nativeBalance={nativBalance}
         ticker={ticker}
-        value={userTokenBalance}
+        tokenBalance={tokenBalance}
       />
 
       <Flex p={4} gap={8} direction="column">
@@ -175,8 +191,9 @@ const TradeWindow = ({ ticker, address }: TradeWindowProps) => {
             </FormLabel>
             <Input
               id="price"
+              min={0}
               value={orderType === "limit" ? price : "MARKET"}
-              onChange={(e) => setPrice(parseInt(e.target.value))}
+              onChange={(e) => setPrice(e.target.value)}
               placeholder={orderType === "limit" ? "0" : "MARKET"}
               pl={0}
               disabled={orderType !== "limit"}
@@ -220,15 +237,21 @@ const TradeWindow = ({ ticker, address }: TradeWindowProps) => {
               >
                 {getOrderTypeText(orderType)}
               </MenuButton>
-              <MenuList>
+              <MenuList borderWidth={0} backgroundColor="gray.800">
                 <MenuItem
-                  bg={orderType === "limit" ? "gray.600" : "unset"}
+                  _hover={{
+                    backgroundColor: "gray.600",
+                  }}
+                  bg={orderType === "limit" ? "gray.700" : "unset"}
                   onClick={() => setOrderType("limit")}
                 >
                   {getOrderTypeText("limit")}
                 </MenuItem>
                 <MenuItem
-                  bg={orderType === "market" ? "gray.600" : "unset"}
+                  _hover={{
+                    backgroundColor: "gray.600",
+                  }}
+                  bg={orderType === "market" ? "gray.700" : "unset"}
                   onClick={handleMarketOrderTypeChange}
                 >
                   {getOrderTypeText("market")}
@@ -245,8 +268,9 @@ const TradeWindow = ({ ticker, address }: TradeWindowProps) => {
             </FormLabel>
             <Input
               id="amount"
+              min={0}
               value={amount}
-              onChange={(e) => setAmount(parseInt(e.target.value))}
+              onChange={(e) => setAmount(e.target.value)}
               placeholder="0"
               pl={0}
               required
@@ -269,9 +293,22 @@ const TradeWindow = ({ ticker, address }: TradeWindowProps) => {
         </Flex>
       </Flex>
 
-      <Button m={4} mb={8} colorScheme={isBuy ? "green" : "red"}>
-        {isBuy ? "Buy" : "Sell"}
+      <Button
+        disabled={
+          limitOrderStatus === "loading" || marketOrderStatus === "loading"
+        }
+        m={4}
+        onClick={onClick}
+        mb={8}
+        colorScheme={side === Side.BUY ? "green" : "red"}
+      >
+        {orderType === "limit" && "Place "}
+        {side === Side.BUY ? "Buy" : "Sell"}
       </Button>
+      <chakra.span color="gray.400" textAlign="center">
+        <Text>limit orders to add to OB</Text>
+        <Text>market orders to execute trade</Text>
+      </chakra.span>
     </Flex>
   );
 };

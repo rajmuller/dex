@@ -29,7 +29,7 @@ Deploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&ut
 ## Further improvements
 
 1. Refactor
-2. Separate balances that are tied to a limit order
+2. Separate available and on orders balance
 3. Limit orders activate buys/sells not just orderbook addition
 4. Implement various decimals
 5. Abstract further away Contract calls and their states

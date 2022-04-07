@@ -8,12 +8,31 @@ import {
   isAddress,
   parseBytes32String,
 } from "ethers/lib/utils";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import DexJson from "../../contract/artifacts/contracts/Dex.sol/Dex.json";
 import { Dex, ERC20 } from "../../contract/typechain";
 import { Contracts, NATIVE_CURRENCY } from "../config";
+
+export enum ApprovalState {
+  // bug
+  // eslint-disable-next-line no-unused-vars
+  UNKNOWN = "UNKNOWN",
+  // eslint-disable-next-line no-unused-vars
+  NOT_APPROVED = "NOT_APPROVED",
+  // eslint-disable-next-line no-unused-vars
+  APPROVED = "APPROVED",
+  // eslint-disable-next-line no-unused-vars
+  PENDING = "PENDING",
+}
+
+export enum Side {
+  // eslint-disable-next-line no-unused-vars
+  BUY = 0,
+  // eslint-disable-next-line no-unused-vars
+  SELL = 1,
+}
 
 const DexInterface = new Interface(DexJson.abi);
 
@@ -230,17 +249,31 @@ export const useAllowance = (address?: string) => {
   return allowance;
 };
 
-export enum ApprovalState {
-  // bug
-  // eslint-disable-next-line no-unused-vars
-  UNKNOWN = "UNKNOWN",
-  // eslint-disable-next-line no-unused-vars
-  NOT_APPROVED = "NOT_APPROVED",
-  // eslint-disable-next-line no-unused-vars
-  APPROVED = "APPROVED",
-  // eslint-disable-next-line no-unused-vars
-  PENDING = "PENDING",
-}
+// NOTE: calling only getOrderbook with useQuery would result in missing data for some strange reason
+const fetchOrderbook = async (dexContract: Dex, ticker: string, side: Side) => {
+  const res = await dexContract.getOrderBook(ticker, side);
+
+  return res.map((order) => ({ ...order }));
+};
+
+export const useOrderbook = (ticker?: string, side?: Side) => {
+  const dexContract = useDexContract(false);
+  console.log({ side });
+
+  const { status, data } = useQuery(
+    ["orderbook", ticker, side],
+    () => fetchOrderbook(dexContract!, ticker!, side!),
+    {
+      enabled: !!dexContract && !!ticker && (side === undefined ? false : true),
+      refetchInterval: 60 * 1000,
+    }
+  );
+
+  return {
+    status,
+    data,
+  };
+};
 
 export const useApproval = (
   ticker?: string,
@@ -412,7 +445,7 @@ export const useDeposit = (ticker?: string, amountToDeposit?: BigNumber) => {
     }
   );
 
-  const deposit = () => {
+  const deposit = useCallback(() => {
     if (!dexContract) {
       console.error("dex contract is null");
       return;
@@ -431,7 +464,14 @@ export const useDeposit = (ticker?: string, amountToDeposit?: BigNumber) => {
     return isNative
       ? nativeDepositMutation.mutate()
       : tokenDepositMutation.mutate();
-  };
+  }, [
+    amountToDeposit,
+    dexContract,
+    isNative,
+    nativeDepositMutation,
+    ticker,
+    tokenDepositMutation,
+  ]);
 
   return {
     status: isNative
@@ -505,7 +545,7 @@ export const useWithdraw = (ticker?: string, amountToWithdraw?: BigNumber) => {
     }
   );
 
-  const withdraw = () => {
+  const withdraw = useCallback(() => {
     if (!dexContract) {
       console.error("dex contract is null");
       return;
@@ -524,7 +564,14 @@ export const useWithdraw = (ticker?: string, amountToWithdraw?: BigNumber) => {
     return isNative
       ? nativeWithdrawMutation.mutate()
       : tokenWithdrawMutation.mutate();
-  };
+  }, [
+    amountToWithdraw,
+    dexContract,
+    isNative,
+    nativeWithdrawMutation,
+    ticker,
+    tokenWithdrawMutation,
+  ]);
 
   return {
     status: isNative
@@ -534,24 +581,132 @@ export const useWithdraw = (ticker?: string, amountToWithdraw?: BigNumber) => {
   };
 };
 
-enum Side {
-  BUY,
-  SELL,
-}
+export const useLimitOrder = (
+  ticker?: string,
+  amount?: BigNumber,
+  price?: BigNumber,
+  side?: Side
+) => {
+  const queryClient = useQueryClient();
+  const dexContract = useDexContract();
 
-// export const useOrderbook = (ticker?: string) => {
-//   const dex = useDexContract();
+  const limitOrderMutation = useMutation(
+    () =>
+      dexContract!
+        .createLimitOrder(side!, ticker!, amount!, price!)
+        .then((res) => {
+          const mined = res.wait();
+          toast.promise(
+            mined,
+            {
+              loading: `Creating limit order...`,
+              success: "Limit order created",
+              error: (err) => `Error creating limit order: ${err.toString()}`,
+            },
+            {
+              success: {
+                duration: 5000,
+              },
+            }
+          );
+          return mined;
+        })
+        .catch((err) => {
+          toast.error(`Error creating limit order: ${err.data.message}`);
+        }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(["balance"]);
+        queryClient.invalidateQueries(["orderbook"]);
+      },
+    }
+  );
 
-//   const buyOrders = useQuery(
-//     ["orderbook", "buy"],
-//     () => dex.getOrderBook(formatBytes32String(ticker!), Side.BUY),
-//     { enabled: !!ticker }
-//   );
-//   const sellOrders = useQuery(
-//     ["orderbook", "sell"],
-//     () => dex.getOrderBook(formatBytes32String(ticker!), Side.SELL),
-//     { enabled: !!ticker }
-//   );
+  const createLimitOrder = useCallback(() => {
+    if (!dexContract) {
+      console.error("dex contract is null");
+      return;
+    }
 
-//   return { buyOrders, sellOrders };
-// };
+    if (!ticker) {
+      console.error("token contract is null");
+      return;
+    }
+
+    if (amount?.eq(0)) {
+      console.error("missing amount");
+      return;
+    }
+
+    if (price?.eq(0)) {
+      console.error("missing price");
+      return;
+    }
+
+    limitOrderMutation.mutate();
+  }, [amount, dexContract, limitOrderMutation, price, ticker]);
+
+  return { createLimitOrder, status: limitOrderMutation.status };
+};
+
+export const useMarketOrder = (
+  ticker?: string,
+  amount?: BigNumber,
+  side?: Side
+) => {
+  const queryClient = useQueryClient();
+  const dexContract = useDexContract();
+
+  const limitOrderMutation = useMutation(
+    () =>
+      dexContract!
+        .createMarketOrder(side!, ticker!, amount!)
+        .then((res) => {
+          const mined = res.wait();
+          toast.promise(
+            mined,
+            {
+              loading: `Executing market order...`,
+              success: "Successful market order",
+              error: (err) => `Error creating market order: ${err.toString()}`,
+            },
+            {
+              success: {
+                duration: 5000,
+              },
+            }
+          );
+          return mined;
+        })
+        .catch((err) => {
+          toast.error(`Error creating market order: ${err.data.message}`);
+        }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(["balance"]);
+        queryClient.invalidateQueries(["orderbook"]);
+      },
+    }
+  );
+
+  const createMarketOrder = useCallback(() => {
+    if (!dexContract) {
+      console.error("dex contract is null");
+      return;
+    }
+
+    if (!ticker) {
+      console.error("token contract is null");
+      return;
+    }
+
+    if (amount?.eq(0)) {
+      console.error("missing amount");
+      return;
+    }
+
+    limitOrderMutation.mutate();
+  }, [amount, dexContract, limitOrderMutation, ticker]);
+
+  return { createMarketOrder, status: limitOrderMutation.status };
+};

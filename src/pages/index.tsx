@@ -22,14 +22,13 @@ import {
   Th,
   Thead,
   Tr,
-  useDisclosure
+  useDisclosure,
 } from "@chakra-ui/react";
-import { useTransactions } from "@usedapp/core";
 import {
   formatBytes32String,
   formatEther,
   parseBytes32String,
-  parseEther
+  parseEther,
 } from "ethers/lib/utils";
 import Link from "next/link";
 import {
@@ -39,7 +38,7 @@ import {
   useCallback,
   useEffect,
   useRef,
-  useState
+  useState,
 } from "react";
 import { Container, Logo } from "../components";
 import {
@@ -52,7 +51,7 @@ import {
   useTickerList,
   useTokenAddress,
   useTokenBalance,
-  useWithdraw
+  useWithdraw,
 } from "../lib/hooks";
 
 type ActionButtonsProps = {
@@ -150,7 +149,7 @@ const WithdrawModal = ({
       onClose={onClose}
     >
       <ModalOverlay />
-      <ModalContent backgroundColor="gray.800">
+      <ModalContent color="white" backgroundColor="gray.800">
         <ModalHeader>Withdraw {parseBytes32String(ticker)}</ModalHeader>
         <ModalCloseButton />
         <ModalBody pb={6}>
@@ -289,7 +288,7 @@ const DepositModal = ({
       onClose={onClose}
     >
       <ModalOverlay />
-      <ModalContent backgroundColor="gray.800">
+      <ModalContent color="white" backgroundColor="gray.800">
         <ModalHeader>Deposit {parseBytes32String(ticker)}</ModalHeader>
         <ModalCloseButton />
         <ModalBody pb={6}>
@@ -398,8 +397,6 @@ const Home = () => {
     onClose: closeWithdrawModal,
   } = useDisclosure();
   const { data: tickerList, status } = useTickerList();
-  const { transactions } = useTransactions();
-  console.log({ transactions });
 
   const onClose = useCallback(() => {
     setActiveTicker(undefined);
