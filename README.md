@@ -5,7 +5,7 @@ Built from scratch to learn:
 - Smart contract development
 - Interaction with the contracts on the frontend
 
-## [Check oout the smart contract repo](https://github.com/AdamReinmuller/dex-contract)
+## [Check out the smart contract repo](https://github.com/AdamReinmuller/dex-contract)
 
 ## Tech stack
 
