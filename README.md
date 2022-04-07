@@ -5,6 +5,8 @@ Built from scratch to learn:
 - Smart contract development
 - Interaction with the contracts on the frontend
 
+## [Check oout the smart contract repo](https://github.com/AdamReinmuller/dex-contract)
+
 ## Tech stack
 
 - Hardhat
@@ -15,16 +17,6 @@ Built from scratch to learn:
 - Chakra UI
 
 ## How to use
-
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init) or [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) to bootstrap the example:
-
-```bash
-npx create-next-app --example with-chakra-ui-typescript with-chakra-ui-typescript-app
-# or
-yarn create next-app --example with-chakra-ui-typescript with-chakra-ui-typescript-app
-```
-
-Deploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&utm_medium=readme&utm_campaign=next-example) ([Documentation](https://nextjs.org/docs/deployment)).
 
 ## Further improvements
 
